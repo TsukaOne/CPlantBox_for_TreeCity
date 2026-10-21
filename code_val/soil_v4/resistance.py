@@ -15,6 +15,7 @@ KILOPASCALS_PER_MEGAPASCAL = 1000.0
 # term alone, which is what makes a wet compacted soil still resist.
 MINIMUM_EFFECTIVE_STRESS_KPA = 1.0
 MAXIMUM_RESISTANCE_MPA = 5.0
+CALIBRATED_SUCTION_RANGE_KPA = (20.0, 300.0)
 
 
 def convert_head_to_suction_kpa(pressure_head_cm: np.ndarray) -> np.ndarray:

@@ -15,6 +15,9 @@ from soil_library.values import ValueRange
 NATURAL = "natural"
 CITY_BARRIER = "city_barrier"
 
+# The native soil under a profile is undisturbed (SoilGrids gives 1.56-1.58 g/cm3 at depth in
+# Brussels, class IN); it is compacted only where compaction is the subject of the profile.
+UNDISTURBED = ("IN",)
 LOOSE = ("VL", "LO")
 SOFT = ("LO", "IN")
 MEDIUM = ("IN", "FR")
@@ -54,25 +57,25 @@ def build_bottom_layer(compaction_classes: tuple[str, ...]) -> LayerRecipe:
 PROFILES = (
     ProfileRecipe("P01", "deep natural soil", ("A1", "A2", "A3", "A4"), "none (control)", (
         build_layer((NATURAL,), 20, 50, SOFT),
-        build_bottom_layer(("IN",)))),
+        build_bottom_layer(UNDISTURBED))),
     ProfileRecipe("P02", "thin soil over a hard layer", ("A5", "E4"), "depth", (
         LayerRecipe((NATURAL, IMPORTED_TOPSOIL), ValueRange(20, 60, DESIGN_DOCUMENT), SOFT),
         LayerRecipe((CITY_BARRIER,), None))),
     ProfileRecipe("P03", "waterlogged soil", ("A6", "D5"), "air", (
         build_layer((NATURAL,), 20, 40, SOFT),
-        build_bottom_layer(("IN", "FR", "VR"))),
+        build_bottom_layer(UNDISTURBED)),
         water_table_depth_cm=ValueRange(40, 150, TO_GROUNDWATER_MAPS)),
     ProfileRecipe("P04", "imported topsoil over native soil", ("B1", "B4"), "interface", (
         build_layer((IMPORTED_TOPSOIL,), 30, 80, LOOSE),
-        build_bottom_layer(MEDIUM))),
+        build_bottom_layer(UNDISTURBED))),
     ProfileRecipe("P05", "compacted soil", ("B5", "B6"), "resistance", (
         build_layer((NATURAL,), 0, 30, SOFT),
         build_layer((NATURAL,), 15, 60, FIRM),
-        build_bottom_layer(("IN",)))),
+        build_bottom_layer(UNDISTURBED))),
     ProfileRecipe("P06", "rubble fill", ("B2", "B3", "B7"), "water and stones", (
         build_layer((IMPORTED_TOPSOIL, RUBBLE_FILL), 10, 30, SOFT),
         build_layer((RUBBLE_FILL,), 50, 200, MEDIUM),
-        build_bottom_layer(MEDIUM))),
+        build_bottom_layer(UNDISTURBED))),
     ProfileRecipe("P07", "multilayer with sharp interfaces", ("B8", "F3"), "interface", (
         build_layer(FINE, 20, 80, SOFT),
         build_layer(COARSE, 20, 80, FIRM),
@@ -86,16 +89,16 @@ PROFILES = (
     ProfileRecipe("P09", "structural soil under pavement", ("C5", "C6"), "volume", (
         build_layer((PAVING,), 8, 15),
         build_layer((STRUCTURAL_SOIL,), 60, 100, LOOSE),
-        build_bottom_layer(MEDIUM)), sealed_surface=True),
+        build_bottom_layer(UNDISTURBED)), sealed_surface=True),
     ProfileRecipe("P10", "loose soil under suspended pavement", ("C7",), "none", (
         build_layer((SUPPORTED_SLAB,), 10, 20),
         build_layer((IMPORTED_TOPSOIL, PIT_SUBSTRATE), 60, 100, LOOSE),
-        build_bottom_layer(("IN",))), sealed_surface=True),
+        build_bottom_layer(UNDISTURBED)), sealed_surface=True),
     ProfileRecipe("P11", "tree sand or engineered substrate", ("C8",), "none", (
         build_layer((TREE_SAND, PIT_SUBSTRATE), 60, 120, SOFT),
-        build_bottom_layer(MEDIUM))),
+        build_bottom_layer(UNDISTURBED))),
     ProfileRecipe("P12", "bioretention and drainage trench", ("D1", "D3", "D4"), "water", (
         build_layer((BIORETENTION_MEDIA,), 40, 90, LOOSE),
         build_layer((GRAVEL,), 20, 40, ("LO",)),
-        build_bottom_layer(MEDIUM))),
+        build_bottom_layer(UNDISTURBED))),
 )
