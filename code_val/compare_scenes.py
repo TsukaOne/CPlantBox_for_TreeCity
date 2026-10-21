@@ -3,6 +3,8 @@
     python3 code_val/compare_scenes.py code_val/pilot_v3 code_val/tmp/v3_before
 
 Timings, the commit stamp and the request id (it carries the directory name) are left out.
+A different descriptor is reported key by key: +key only in the candidate, -key only in the
+reference, key changed.
 """
 import argparse
 import json
@@ -15,6 +17,7 @@ SITE_REQUEST_SUBDIRECTORY = "site_request"
 TIMING_KEYS = ("runtime_seconds", "soil_seconds", "growth_seconds")
 VERSION_KEY = "versions"
 REQUEST_KEY = "request_id"
+MISSING = object()
 
 
 def read_descriptor(path: Path) -> dict:
@@ -31,6 +34,21 @@ def read_site_request(path: Path) -> dict:
     return request
 
 
+def find_key_differences(expected: dict, produced: dict, prefix: str = "") -> list:
+    differences = []
+    for key in sorted(expected.keys() | produced.keys()):
+        expected_value, produced_value = expected.get(key, MISSING), produced.get(key, MISSING)
+        if isinstance(expected_value, dict) and isinstance(produced_value, dict):
+            differences += find_key_differences(expected_value, produced_value, f"{prefix}{key}.")
+        elif expected_value is MISSING:
+            differences.append(f"+{prefix}{key}")
+        elif produced_value is MISSING:
+            differences.append(f"-{prefix}{key}")
+        elif expected_value != produced_value:
+            differences.append(f"{prefix}{key}")
+    return differences
+
+
 def find_array_differences(reference: Path, candidate: Path) -> list:
     with np.load(reference) as expected, np.load(candidate) as produced:
         if set(expected.files) != set(produced.files):
@@ -42,8 +60,10 @@ def find_scene_differences(stem: str, reference: Path, candidate: Path) -> list:
     differences = find_array_differences(reference / f"{stem}.npz", candidate / f"{stem}.npz")
     if (reference / f"{stem}.vti").read_bytes() != (candidate / f"{stem}.vti").read_bytes():
         differences.append("vti")
-    if read_descriptor(reference / f"{stem}.json") != read_descriptor(candidate / f"{stem}.json"):
-        differences.append("descriptor")
+    keys = find_key_differences(read_descriptor(reference / f"{stem}.json"),
+                                read_descriptor(candidate / f"{stem}.json"))
+    if keys:
+        differences.append(f"descriptor ({', '.join(keys)})")
     request = Path(SITE_REQUEST_SUBDIRECTORY) / f"{stem}.json"
     if read_site_request(reference / request) != read_site_request(candidate / request):
         differences.append("site_request")
