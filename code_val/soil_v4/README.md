@@ -19,7 +19,7 @@ water comes from the city, never from the texture.
 | `aeration.py` | air-filled porosity 1 − ρ/2.65 − θ (none when saturated), ramp from 5 % to 12 % air |
 | `factors.py` | mechanical ramp with an open stop threshold, `f_se` = product of the factors × rootable, `f_sa` |
 | `state.py` | `compute_soil_state`: everything that follows from one water state |
-| `scene.py` | `SoilScene` (what is drawn) → `SceneSoil` (static fields, one Rosetta call) → one state per water state |
+| `scene.py` | `SoilScene` (what is drawn) → `SceneSoil` (static fields, walls, one Rosetta call) → one state per water state |
 | `check_references.py` | the physics against published values |
 
 ## Run
@@ -29,21 +29,22 @@ docker run --rm -v "C:\Users\ValentinMarchand\Dev\CPlantBox_for_TreeCity:/worksp
     -w /workspaces/CPlantBox_for_TreeCity cplantbox-image bash -c "
     python3 code_val/soil_v4/check_references.py
     python3 code_val/visualisation/soil_states.py
-    python3 code_val/visualisation/soil_scene.py 1001 --profile P08 --city Helsinki --pit compacted
-    python3 code_val/visualisation/soil_section.py output/soil_v4/scene_01001_P08_helsinki.vti"
+    python3 code_val/visualisation/soil_scene.py 1001 --profile P08 --city Helsinki --walls foundation
+    python3 code_val/visualisation/soil_section.py output/soil_v4/scene_01001_P08_helsinki_foundation.vti"
 ```
 
 - `soil_states.py`: `output/soil_v4/soil_states_<city>.png`, resistance, air and `f_se` down the
   profiles of `soil_columns.png`, for each season, the mean state and a 3.0 MPa stop.
 - `soil_scene.py <id>`: the v4 soil of v3 scene `<id>` (same tree, pit size, networks, leaks) as a
-  `.vti` for ParaView, plus a summary of what limits growth. `--profile`, `--city`, `--pit` fix
-  what is otherwise drawn from the scene identifier.
-- `soil_section.py <vti>`: a PNG section through the trunk of that `.vti`.
+  `.vti` for ParaView, plus a summary of what limits growth. `--profile`, `--city`, `--pit` and
+  `--walls` fix what is otherwise drawn from the scene identifier.
+- `soil_section.py <vti>`: a PNG section through the trunk, across the street, of that `.vti`.
 
 ## Order of a scene
 
 1. Static soil: profile columns, blended by patch weights, noised.
-2. Planting pit, then network backfills (a trench crosses the pit like any soil).
+2. Planting pit, then network backfills (a trench crosses the pit like any soil), then walls
+   (`network/wall_layouts.py`): the share of a voxel a wall fills is no longer rootable.
 3. Rosetta once on the result.
 4. Per water state: city season × year × sealing (outside the pit), runoff into the pit, leaks,
    water table; then θ, ψ, resistance, air and the factors.

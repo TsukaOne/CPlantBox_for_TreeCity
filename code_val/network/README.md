@@ -115,3 +115,33 @@ moisture and softens the resistance accordingly.
   SDF is not punctured at the leak point. What is produced is clustering against the pipe.
 - Signal measurements for the street as an obstacle were taken on the axis-aligned prototype;
   see [sandbox/README.md](../sandbox/README.md). They have not been re-measured on this package.
+
+## Wall module (v4)
+
+Vertical barriers no root crosses, drawn per scene for the v4 generator. Nothing above changes:
+`build_street_geometry` is still the v3 domain; `build_scene_geometry` is the v4 one.
+
+| File | Responsibility |
+|---|---|
+| `wall_layouts.py` | the three kinds and their dimensions: a building foundation, a narrow strip (facade + kerb), a confined pit (square ring around the pit) |
+| `wall_panels.py` | a panel in the street frame, and where it can stand: moved away from the trunk, then made shallower, then dropped |
+| `wall_measures.py` | signed 3-D distance to a wall, room left to a corridor, voxel fraction |
+| `wall_geometry.py` | the CPlantBox solids (a box per segment, a cylinder per node, inflated 4 cm sideways and downwards) and `build_scene_geometry` |
+| `check_wall_geometry.py` | CPlantBox against numpy on points around each wall |
+
+A wall is a `TrenchSlab`, so its coverage is the exact prism coverage of `coverage.py`. Only
+corridors are checked for clearance: connections and pit services may cross a wall, as they do
+through a real foundation.
+
+| Kind (probability) | Placed | Shifted | Shallower | Dropped | Median depth |
+|---|---|---|---|---|---|
+| foundation (0.20) | 74 % | 5 % | 18 % | 2 % | 213 cm |
+| narrow strip (0.10) | 61 % | 22 % | 14 % | 3 % | 65 cm |
+| confined pit (0.15) | 32 % | — | 60 % | 8 % | 61 cm |
+
+Over the first 200 v3 scenes, 5 to 13 ms per scene. `check_wall_geometry.py` on scene 1001:
+sign agreement 99.8 to 100 %, largest gap 2.2 cm within 5 cm of a face. The rest is the bottom
+edge, square in CPlantBox and rounded in numpy, which makes CPlantBox exclude slightly more.
+
+Every wall dimension and probability is an estimate. A confined pit is often made shallower:
+sidewalk corridors pass close to the trunk, and in v3 they even cross the pit.
