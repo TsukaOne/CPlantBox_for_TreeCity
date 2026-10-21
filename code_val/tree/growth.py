@@ -13,13 +13,14 @@ import plantbox as pb
 
 from grid import VoxelGrid
 from tree.attributes import DAYS_PER_YEAR
+from tree.species import PARAMETERS_DIRECTORY
 
 TIME_STEP_DAYS = 10.0
 HYDROTROPIC_SUBTYPES = (5, 6)
 HYDROTROPISM = 3 
 # TropismS
 HYDROTROPIC_TROPISM_STRENGTH = 0.10
-XML_PATH = Path(__file__).resolve().parent.parent / "parameters" / "Picea_Abies_combined_v6.xml"
+
 
 
 class RootSystem(NamedTuple):
@@ -90,9 +91,9 @@ def extract_root_system(plant: pb.Plant) -> RootSystem:
     return RootSystem(segments, subtypes)
 
 
-def create_plant(geometry, elongation_grid, seed: int, angle_grid: Optional[pb.EquidistantGrid3D], water_lookup: Optional[pb.SoilLookUp]) -> pb.Plant:
+def create_plant(geometry, elongation_grid, seed: int, tree: Path, angle_grid: Optional[pb.EquidistantGrid3D], water_lookup: Optional[pb.SoilLookUp]) -> pb.Plant:
     plant = pb.Plant()
-    plant.readParameters(str(XML_PATH))
+    plant.readParameters(str(PARAMETERS_DIRECTORY / tree))
     plant.setSeed(seed)
     plant.setGeometry(geometry)
     assign_soil_hooks(plant, elongation_grid, angle_grid)
@@ -102,8 +103,8 @@ def create_plant(geometry, elongation_grid, seed: int, angle_grid: Optional[pb.E
     return plant
 
 
-def grow_plant(geometry, elongation_grid, seed: int, age_years: float, vtp_path: Optional[Path] = None, time_step_days: float = TIME_STEP_DAYS, angle_grid: Optional[pb.EquidistantGrid3D] = None, water_lookup: Optional[pb.SoilLookUp] = None) -> pb.Plant:
-    plant = create_plant(geometry, elongation_grid, seed, angle_grid, water_lookup)
+def grow_plant(geometry, elongation_grid, seed: int, age_years: float, tree: Path, vtp_path: Optional[Path] = None, time_step_days: float = TIME_STEP_DAYS, angle_grid: Optional[pb.EquidistantGrid3D] = None, water_lookup: Optional[pb.SoilLookUp] = None) -> pb.Plant:
+    plant = create_plant(geometry, elongation_grid, seed, tree, angle_grid, water_lookup)
     for _ in range(round(age_years * DAYS_PER_YEAR / time_step_days)):
         plant.simulate(time_step_days, False)
 
@@ -113,6 +114,6 @@ def grow_plant(geometry, elongation_grid, seed: int, age_years: float, vtp_path:
     return plant
 
 
-def grow_root_system(geometry, elongation_grid, seed: int, age_years: float, vtp_path: Optional[Path] = None, time_step_days: float = TIME_STEP_DAYS, angle_grid: Optional[pb.EquidistantGrid3D] = None, water_lookup: Optional[pb.SoilLookUp] = None) -> RootSystem:
-    return extract_root_system(grow_plant(geometry, elongation_grid, seed, age_years, vtp_path,
+def grow_root_system(geometry, elongation_grid, seed: int, age_years: float, tree: Path, vtp_path: Optional[Path] = None, time_step_days: float = TIME_STEP_DAYS, angle_grid: Optional[pb.EquidistantGrid3D] = None, water_lookup: Optional[pb.SoilLookUp] = None) -> RootSystem:
+    return extract_root_system(grow_plant(geometry, elongation_grid, seed, age_years, tree, vtp_path,
                                           time_step_days, angle_grid, water_lookup))

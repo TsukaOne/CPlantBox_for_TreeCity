@@ -41,15 +41,16 @@ std::string RootDelay::toString() const
  * Overwrite this method to implement more spezialized root classes.
  *
  * @param verbose   turns console output on or off
+ * @param isApical  true if this is the last linking node of the root (the rules with where="apex" are only applied there)
  */
-void RootDelay::createLateral(double dt, bool verbose)
+void RootDelay::createLateral(double dt, bool verbose, bool isApical)
 {
 	// std::cout<< "create delayed root\n";
 	auto rrp = getRootRandomParameter(); // rename
 	for(int i = 0; i < rrp->successorST.size(); i++)
 	{//go through each successor rule
 		//found id
-		bool applyHere = getApplyHere(i);
+		bool applyHere = getApplyHere(i, isApical);
 		if(applyHere)
 		{
 			int numlats = 1;//how many laterals? default = 1

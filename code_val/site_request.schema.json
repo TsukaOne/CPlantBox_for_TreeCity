@@ -63,7 +63,7 @@
       "properties": {
         "species": {
           "enum": ["picea_abies", "quercus_robur", "aesculus_hippocastanum"],
-          "description": "Species. WARNING: dataset v3 contains only picea_abies; the other two values are accepted by the schema but remain out-of-distribution until other species are simulated.",
+          "description": "Species. Dataset v3 is generated per tree, one folder dataset_v3/<xml>/ each, and its design.json names the species: a species that no folder covers stays out-of-distribution, even though the schema accepts it.",
           "x-source": "cityjson"
         },
         "architecture": {

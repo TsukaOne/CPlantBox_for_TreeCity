@@ -1,0 +1,262 @@
+<!--
+Picea abies (epicea commun), plaque racinaire superficielle, simulation de 120 ans (simulationTime = 43800 jours).
+
+ARCHITECTURE
+  Un court axe juvenile (ST1) porte une douzaine de charpentieres horizontales (ST2) qui forment une plaque superficielle. Pas de pivot.
+  Chaque ST2 porte des fines (ST3), des laterales exploratoires (ST6) et quelques laterales structurales secondaires (ST4).
+  Une ST4 porte des fines (ST3) et des racines profondes (ST7). Une ST3 porte des absorbantes (ST5).
+  Une ST6 porte des absorbantes (ST5) et des fines (ST3). Une ST7 porte des fines (ST3).
+  Tous les sous-types sont plagiotropes (T = 0), sauf ST7 qui est gravitrope (T = 1) : c'est la seule qui descend en profondeur.
+  Exception de fait : ST6 recoit l'hydrotropisme (voir TROPISMES), qui agit comme un gravitropisme faible en champ d'eau uniforme ; son N a ete abaisse a 0.1 pour qu'elle reste superficielle.
+
+SOUS-TYPES
+  1 axe juvenile court        2 charpentiere de plaque      3 fine de transport
+  4 laterale structurale secondaire       5 absorbante courte
+  6 laterale exploratoire superficielle   7 racine profonde gravitrope (issue d'une ST4)
+
+GLOSSAIRE DES PARAMETRES (blocs root de CPlantBox)
+  a          rayon de la racine a sa naissance (cm). CPlantBox ne le fait pas evoluer : l'epaississement est refait apres coup par secondary_growth/.
+  r          vitesse initiale de croissance (cm/jour). Avec gf = 1 : l(t) = lmax * (1 - exp(-r*t/lmax)).
+  lmax       longueur maximale de l'axe (cm).
+  rlt        duree de vie de la racine (jours). 1e+09 = ne meurt jamais.
+  la         longueur de la zone apicale, sans laterales (cm).
+  lb         longueur de la zone basale, sans laterales (cm).
+  ln         distance entre deux points de ramification (cm). 0 = pas de laterale.
+  lnk        pente de variation de ln le long de l'axe (cm par cm). 0 = ln constant.
+  theta      angle d'insertion par rapport au cap du parent (rad). 0.45 = 26 deg, 1.00 = 57 deg, 1.44 = 82.5 deg.
+  dx         longueur maximale d'un segment (cm). C'est a la fois le pas de croissance et la distance d'anticipation du tropisme.
+  dxMin      longueur minimale d'un segment (cm).
+  ldelay     delai d'emergence des laterales (jours). -1 = deduit de la loi de croissance.
+  gf         fonction de croissance : 1 = exponentielle negative, 2 = lineaire.
+  dev        ecart-type du tirage normal du parametre, un tirage par racine.
+  successor  regle de ramification. ruleId : numero de la regle (une regle = un tirage independant a chaque point de ramification). numLat : nombre de tirages par point (chacun cree au plus une laterale). subType : sous-type cree.
+             organType : 2 = racine. percentage : probabilite que la regle cree sa racine a un point de ramification (somme <= 1 pour un meme ruleId).
+             where : numeros des points de ramification concernes, separes par des virgules ; absent ou vide = tous les points.
+             CPlantBox lit cet attribut en minuscules et en nombres : un attribut ecrit Where, ou la valeur apex, n'est pas pris en compte,
+             et la regle s'applique alors a tous les points de ramification.
+  seed       seedPos : position du collet (cm), z = -3 soit 3 cm sous la surface. simulationTime : duree simulee, 43800 jours = 120 ans.
+             maxB, firstB, delayB, nC, nz, maxTil, delay*, first* : racines adventives et partie aerienne, neutralises (0 ou 1e+09).
+
+
+
+TROPISMES (tropismT, tropismN, tropismS), d'apres tropism.cpp et tropism.h
+  Principe : a chaque pas, la racine tire un cap candidat (ecart a ~ Normal(0, S*racine(dx)) autour du cap courant, azimut uniforme),
+  puis N*racine(dx) candidats supplementaires (la partie fractionnaire est arrondie au hasard). Elle garde celui qui minimise l'objectif
+  du tropisme. Les ecarts ne s'ajoutent donc pas au cap : ils sont SELECTIONNES.
+
+  tropismT, le type de tropisme (objectif minimise) :
+    0  plagiotropisme : prefere un cap horizontal.
+    1  gravitropisme : prefere descendre.
+    2  exotropisme : prefere garder le cap initial de la racine (cap d'emergence).
+    3  hydrotropisme : prefere se diriger vers les zones les plus humides (champ d'eau fourni par setSoil()).
+       Dans ce projet, quand ce champ est branche, growth.py l'impose aux sous-types 5 et 6 avec S = 0.10 :
+       leur T et leur S dans ce fichier ne s'appliquent alors plus, seul leur N reste utilise.
+       CPlantBox melange hydrotropisme et gravitropisme a 10:1 : dans un sol a eau uniforme (sol 1), il n'y a pas de gradient d'eau et ST6 se comporte
+       en gravitrope. Avec N = 0.5, ST6 plongeait (jusqu'a 115 cm, 88 % de segments verticaux) ; avec N = 0.1 elle reste superficielle (mediane de profondeur max 58 cm).
+    D'autres tropismes existent dans CPlantBox (antigravitropisme, torsion...) mais ne sont pas utilises ici.
+
+  tropismN, l'intensite de la selection (nombre d'essais = N*racine(dx)) :
+    N = 0       aucune selection : le tropisme est inactif et le cap fait une marche aleatoire.
+    N faible    (0.1 a 1) selection partielle : la racine meandre et ne rejoint que lentement la direction preferee.
+    N moyen     (1 a 4) selection nette : la racine suit sa direction preferee avec une legere agitation autour d'elle.
+    N eleve     (4 et plus) la meilleure candidate est presque toujours quasi optimale : racine quasi rectiligne, redressement rapide.
+
+  tropismS, l'amplitude de l'agitation. L'ecart-type de l'angle tire a chaque pas vaut S x racine(dx), en radians
+  (avec dx = 2 cm : S = 0.03 donne environ 2.4 deg, S = 0.10 environ 8 deg, S = 0.30 environ 24 deg) :
+    S faible    (moins de 0.03) les caps candidats restent tres proches du cap courant : la racine ne peut tourner que tres
+                lentement, elle est rigide et garde son cap meme si N selectionne fortement une autre direction.
+    S moyen     (0.03 a 0.10) virages moderes : la racine peut se redresser ou meandrer en gardant une trajectoire lisse.
+    S eleve     (plus de 0.10) virages vifs : avec un N suffisant la racine rejoint vite sa direction preferee ;
+                avec un N faible elle devient tres sinueuse.
+
+  Le meandre vient du rapport entre les deux : N faible ET S eleve = racine sinueuse ; N eleve ET S faible = racine droite.
+  dx agit sur les deux : plus il est grand, plus il y a d'essais et d'ecart par pas.
+-->
+<plant>
+	<seed name="Picea_abies" subType="0">
+		<parameter name="seedPos.x" value="0"/>
+		<parameter name="seedPos.y" value="0"/>
+		<parameter name="seedPos.z" value="-3"/>
+		<parameter name="simulationTime" value="43800"/>
+		<parameter name="a" value="0.18"/>
+		<parameter name="dx" value="1.0"/>
+		<parameter name="dxMin" value="1e-06"/>
+		<!--   Racines basales automatiques desactivees (maxB = 0, firstB et delayB a 1e+09) : sinon elles prendraient le sous-type 4.   -->
+		<parameter name="maxB" value="0" dev="0"/>
+		<parameter name="firstB" value="1e+09"/>
+		<parameter name="delayB" value="1e+09"/>
+		<parameter name="nC" value="0"/>
+		<parameter name="nz" value="0"/>
+		<parameter name="delayDefinition" value="0"/>
+		<parameter name="delayDefinitionShoot" value="0"/>
+		<parameter name="maxTil" value="0"/>
+		<parameter name="delayRC" value="1e+09"/>
+		<parameter name="delaySB" value="1e+09"/>
+		<parameter name="delayTil" value="1e+09"/>
+		<parameter name="firstSB" value="1e+09"/>
+		<parameter name="firstTil" value="1e+09"/>
+		<parameter name="ldelay" value="-1"/>
+	</seed>
+	<!--   ST1 : court axe juvenile, sans pivot persistant, qui porte une douzaine de charpentieres ST2.   -->
+	<root name="juvenile_primary_axis" subType="1">
+		<parameter name="a" value="0.20"/>
+		<parameter name="r" value="0.12"/>
+		<parameter name="lmax" value="45" dev="3"/>
+		<parameter name="rlt" value="1e+09"/>
+		<parameter name="la" value="5"/>
+		<parameter name="lb" value="3"/>
+		<!--   ln = 3.35 : environ 12 points de ramification ((45 - 5 - 3) / 3.35 + 1), chacun portant une ST2 (percentage 1.0), soit une douzaine de charpentieres autour du collet.   -->
+		<parameter name="ln" value="3.35" dev="0.12"/>
+		<parameter name="lnk" value="0"/>
+		<parameter name="theta" value="0.06" dev="0.02"/>
+		<parameter name="dx" value="1.5"/>
+		<parameter name="dxMin" value="1e-06"/>
+		<parameter name="ldelay" value="-1"/>
+		<parameter name="gf" value="1"/>
+		<parameter name="tropismT" value="0"/>
+		<parameter name="tropismN" value="6"/>
+		<parameter name="tropismS" value="0.012"/>
+		<parameter name="successor" ruleId="0" numLat="1" Where="" subType="2" organType="2" percentage="1.0"/>
+	</root>
+	<!--   ST2 : charpentieres horizontales longues, qui forment la plaque racinaire superficielle et portent des fines ST3, des laterales ST6 et quelques laterales secondaires ST4.   -->
+	<root name="structural_plate_laterals" subType="2">
+		<parameter name="a" value="0.25" dev="0.05"/>
+		<!--   r = 0.15 (dev 0.05) : croissance lente, lmax n'est pas atteinte avant plusieurs annees ; dev donne des vitesses, donc des longueurs, differentes d'une charpentiere a l'autre.   -->
+		<parameter name="r" value="0.15" dev="0.05"/>
+		<!--   lmax = 500 cm, dev 190 : de longues charpentieres cohabitent avec d'autres beaucoup plus courtes, comme sur une plaque racinaire reelle.   -->
+		<parameter name="lmax" value="500" dev="190"/>
+		<parameter name="rlt" value="1e+09"/>
+		<parameter name="la" value="10"/>
+		<parameter name="lb" value="4"/>
+		<!--   ln = 20 cm, lnk = 0.005 : espacement modere des ramifications, pour eviter un fouillis de laterales.   -->
+		<parameter name="ln" value="20" dev="2"/>
+		<parameter name="lnk" value="0.005"/>
+		<!--   1.48 rad = 85 deg : presque horizontale, avec un peu de variation (dev 0.05).   -->
+		<parameter name="theta" value="1.48" dev="0.05"/>
+		<parameter name="dx" value="3.0"/>
+		<parameter name="dxMin" value="1e-06"/>
+		<parameter name="ldelay" value="-1"/>
+		<parameter name="gf" value="1"/>
+		<parameter name="tropismT" value="0"/>
+		<!--   T = 0 ne contraint que la composante verticale du cap. S = 0.11 (0.05 au depart) : avec 0.05 la tortuosite 40-100 cm etait de 1.007, trop droite ; a 0.11 elle vaut 1.029. Contrepartie : la direction se decorrele sur environ 170 cm, le rayon final median passe de 451 a 354 cm.   -->
+		<parameter name="tropismN" value="0.5"/>
+		<parameter name="tropismS" value="0.11"/>
+		<!--   Trois regles independantes (ruleId 0 a 2) a chaque point de ramification : ST3 64 %, ST6 12 %, ST4 6 %. Une ST2 ne cree jamais de ST2, ce qui evite les ramifications recursives.   -->
+		<parameter name="successor" ruleId="0" numLat="1" Where="" subType="3" organType="2" percentage="0.64"/>
+		<parameter name="successor" ruleId="1" numLat="1" Where="" subType="6" organType="2" percentage="0.12"/>
+		<parameter name="successor" ruleId="2" numLat="1" Where="" subType="4" organType="2" percentage="0.06"/>
+	</root>
+	<!--   ST3 : fines de transport courtes, qui portent des absorbantes ST5.   -->
+	<root name="fine_transport_roots" subType="3">
+		<parameter name="a" value="0.035" dev="0.005"/>
+		<parameter name="r" value="0.07"/>
+		<parameter name="lmax" value="14" dev="3"/>
+		<!--   rlt = 900 jours (environ 2.5 ans) : CPlantBox ne regenere pas les fines mortes le long des vieux axes, elles sont donc gardees longtemps pour representer l'enveloppe de contact cumulee.   -->
+		<parameter name="rlt" value="900" dev="150"/>
+		<parameter name="la" value="1.5"/>
+		<parameter name="lb" value="0.5"/>
+		<parameter name="ln" value="5.0" dev="1.0"/>
+		<parameter name="lnk" value="0"/>
+		<parameter name="theta" value="1.35" dev="0.30"/>
+		<parameter name="dx" value="0.6"/>
+		<parameter name="dxMin" value="1e-06"/>
+		<parameter name="ldelay" value="-1"/>
+		<parameter name="gf" value="1"/>
+		<parameter name="tropismT" value="0"/>
+		<!--   N = 3 et dx = 0.6 : en moyenne 2.3 essais par pas (N x racine(dx)). S = 0.08 : fines flexibles, sans boucles.   -->
+		<parameter name="tropismN" value="3"/>
+		<parameter name="tropismS" value="0.08"/>
+		<!--   Regle ST3 vers ST5 (18 %) : c'est elle qui cree les absorbantes.   -->
+		<parameter name="successor" ruleId="0" numLat="1" Where="" subType="5" organType="2" percentage="0.18"/>
+	</root>
+	<!--   ST4 : laterales structurales secondaires, rares et plagiotropes, qui portent des fines ST3 et les racines profondes ST7.   -->
+	<root name="structural_secondary_laterals" subType="4">
+		<parameter name="a" value="0.08" dev="0.012"/>
+		<parameter name="r" value="0.11"/>
+		<parameter name="lmax" value="95" dev="25"/>
+		<parameter name="rlt" value="1e+09"/>
+		<parameter name="la" value="4"/>
+		<parameter name="lb" value="1"/>
+		<parameter name="ln" value="18" dev="4"/>
+		<parameter name="lnk" value="0"/>
+		<parameter name="theta" value="0.05" dev="0.02"/>
+		<parameter name="dx" value="2.0"/>
+		<parameter name="dxMin" value="1e-06"/>
+		<parameter name="ldelay" value="-1"/>
+		<parameter name="gf" value="1"/>
+		<parameter name="tropismT" value="0"/>
+		<!--   T = 0 : ce sous-type prefere un cap horizontal, pas la verticale.   -->
+		<parameter name="tropismN" value="0.5"/>
+		<parameter name="tropismS" value="0.10"/>
+		<!--   S = 0.10 (0.08 au depart) : tortuosite 40-100 cm de 1.016 a 1.025.   -->
+		<!--   ST3 (20 %) portees par ces laterales.   -->
+		<parameter name="successor" ruleId="0" numLat="1" Where="" subType="3" organType="2" percentage="0.20"/>
+		<!--   Regle ST7 (15 %). Ici l'attribut est ecrit Where (majuscule) : il n'est pas lu et la regle s'applique a tous les points de ramification de la ST4 (environ 6 : (95 - 4 - 1) / 18 + 1), soit environ 16 ST7 par arbre. Valeur testee et gardee telle quelle ; ecrit where="apex" en minuscules (patch apex), la regle ne s'appliquerait qu'a l'extremite.   -->
+		<parameter name="successor" ruleId="1" numLat="1" Where="apex" subType="7" organType="2" percentage="0.15"/>
+	</root>
+	<!--   ST5 : absorbantes tres courtes, racines terminales sans laterale.   -->
+	<root name="absorbing_short_roots" subType="5">
+		<parameter name="a" value="0.0145" dev="0.003"/>
+		<parameter name="r" value="0.05"/>
+		<parameter name="lmax" value="4.5" dev="1.5"/>
+		<!--   rlt = 1158 jours (environ 3 ans).   -->
+		<parameter name="rlt" value="1158" dev="200"/>
+		<parameter name="la" value="0.6"/>
+		<parameter name="lb" value="0"/>
+		<parameter name="ln" value="0"/>
+		<parameter name="lnk" value="0"/>
+		<parameter name="theta" value="1.25" dev="0.40"/>
+		<parameter name="dx" value="0.4"/>
+		<parameter name="dxMin" value="1e-06"/>
+		<parameter name="ldelay" value="-1"/>
+		<parameter name="gf" value="1"/>
+		<parameter name="tropismT" value="0"/>
+		<parameter name="tropismN" value="3"/>
+		<parameter name="tropismS" value="0.10"/>
+	</root>
+	<!--   ST6 : laterales exploratoires superficielles, qui portent des absorbantes ST5 et des fines ST3.   -->
+	<root name="exploratory_laterals" subType="6">
+		<parameter name="a" value="0.09" dev="0.015"/>
+		<parameter name="r" value="0.08"/>
+		<parameter name="lmax" value="120" dev="35"/>
+		<parameter name="rlt" value="1e+09"/>
+		<parameter name="la" value="6"/>
+		<parameter name="lb" value="2"/>
+		<parameter name="ln" value="26" dev="4"/>
+		<parameter name="lnk" value="0"/>
+		<!--   0.18 rad = 10 deg : part presque dans le prolongement de sa mere, ce qui limite les departs vers la surface.   -->
+		<parameter name="theta" value="0.18" dev="0.04"/>
+		<parameter name="dx" value="2.8"/>
+		<parameter name="dxMin" value="1e-06"/>
+		<parameter name="ldelay" value="-1"/>
+		<parameter name="gf" value="1"/>
+		<parameter name="tropismT" value="0"/>
+		<!--   N = 0.1 (0.5 au depart) : voir TROPISMES, ST6 est sous hydrotropisme et plongeait. T et S ci-dessous sont sans effet quand le champ d'eau est branche.   -->
+		<parameter name="tropismN" value="0.1"/>
+		<parameter name="tropismS" value="0.08"/>
+		<!--   Deux regles independantes : ST5 (32 %) et ST3 (32 %).   -->
+		<parameter name="successor" ruleId="0" numLat="1" Where="" subType="5" organType="2" percentage="0.32"/>
+		<parameter name="successor" ruleId="1" numLat="1" Where="" subType="3" organType="2" percentage="0.32"/>
+	</root>
+	<!--   ST7 : racines profondes gravitropes, nees des ST4 : ce sont les seules racines qui descendent. Elles portent des fines ST3.   -->
+	<root name="deep_gravitropic_roots" subType="7">
+		<parameter name="a" value="0.05" dev="0.01"/>
+		<parameter name="r" value="0.07"/>
+		<parameter name="lmax" value="125" dev="25"/>
+		<parameter name="rlt" value="1e+09"/>
+		<parameter name="la" value="3"/>
+		<parameter name="lb" value="0"/>
+		<parameter name="ln" value="12" dev="3"/>
+		<parameter name="lnk" value="0"/>
+		<parameter name="theta" value="0.08" dev="0.04"/>
+		<parameter name="dx" value="2.0"/>
+		<parameter name="dxMin" value="1e-06"/>
+		<parameter name="ldelay" value="-1"/>
+		<parameter name="gf" value="1"/>
+		<!--   T = 1 : seul sous-type gravitrope du fichier.   -->
+		<parameter name="tropismT" value="1"/>
+		<parameter name="tropismN" value="0.5"/>
+		<parameter name="tropismS" value="0.06"/>
+		<parameter name="successor" ruleId="0" numLat="1" Where="" subType="3" organType="2" percentage="0.20"/>
+	</root>
+</plant>

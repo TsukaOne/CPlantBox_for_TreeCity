@@ -26,8 +26,8 @@ from hybrid.channels import ADDED_CHANNEL_NAMES, build_added_channels, select_hy
 from soil.archetypes import BULK_DENSITY_RANGE_G_CM3, PENETROMETER_RANGE_MPA
 from soil.pit import TREE_PIT_DEPTH_RANGE_CM
 from grid import VoxelGrid
-from tree.attributes import (AGE_RANGE_YEARS, ARCHITECTURE_OF_SPECIES, ARCHITECTURE_SLOTS,
-                             SPECIES_SLOTS)
+from tree.attributes import AGE_RANGE_YEARS
+from tree.species import ARCHITECTURE_OF_SPECIES, ARCHITECTURE_SLOTS, SPECIES_SLOTS
 
 CHANNEL_SCHEMA = "v4"
 BASELINE_CHANNEL_NAMES = ("penetrometer", "bulk_density", "available_water", "sand_fraction",

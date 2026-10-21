@@ -1,14 +1,15 @@
 # code_val — root-system dataset generator (AI3RSS)
 
-Grows *Picea abies* root systems in CPlantBox inside a synthetic urban scene — layered soil,
+Grows urban-tree root systems (*Picea abies*, *Quercus robur*, *Aesculus hippocastanum*) in CPlantBox inside a synthetic urban scene — layered soil,
 planting pit, buried utility networks, joint leaks — and turns them into voxel grids a 3D U-Net
 can be trained on: **where a structural root is likely to be**, given the soil and the street.
 
 Three generators live here side by side. **Do not refactor v1 while working on v3 or v4**: v1 is
-frozen on purpose and must keep running. v2 is no longer a generator but a dataset on disk:
-`generator/` has evolved into v3 and does not reproduce it (see the v2 column). v4 reuses the v3
-scenes and machinery and replaces the soil; the v3 output stays bit for bit what it was
-(`compare_scenes.py`).
+frozen on purpose. Since the multi-tree change (one CPlantBox parameter file per run, `--tree`) it
+no longer runs as is: `dataset/example.py` calls `grow_root_system` without its new `tree` argument.
+v2 is no longer a generator but a dataset on disk: `generator/` has evolved into v3 and does not
+reproduce it (see the v2 column). v4 reuses the v3 scenes and machinery and replaces the soil; the
+v3 output stays bit for bit what it was (`compare_scenes.py`).
 
 | | **v1** | **v2** (on disk, 2026-09-22) | **v3** | **v4** (pilot, 2026-10-21) |
 |---|---|---|---|---|
@@ -54,7 +55,9 @@ Each step is one module; read the code in this order.
    One `SceneConfiguration` per identifier, from a master seed split into five independent
    streams (tree, pit, soil, street, noise) so changing one domain never reshuffles the others.
    It draws the tree, the pit, the soil mosaic (`soil/mosaic.py`), the street
-   (`network/street.py`) and its joint leaks (`network/leaks.py`).
+   (`network/street.py`) and its joint leaks (`network/leaks.py`). The CPlantBox parameter file of
+   the tree (`tree_xml`) is an input of the scene, and its species is read from the file name
+   (`tree/species.py`); the other streams do not depend on it.
 2. **Build the environment** — `generator/environment.py`
    The order is the argument and cannot be permuted: pit → engineered fills → leaks → Rosetta on
    the composited field → geometry last. Produces the five soil channels, the matric potential,
@@ -105,8 +108,8 @@ The v1 path is the same skeleton with fewer steps: `dataset/configuration.py` �
 | `soil_library/` | v4 urban soil catalogue: materials, profile types, compaction, cities, sources | [soil_library/README.md](soil_library/README.md) |
 | `soil_v4/` | v4 soil physics and fields: Rosetta, water states, Whalley resistance, aeration, pit, backfills | [soil_v4/README.md](soil_v4/README.md) |
 | `visualisation/` | PNG and `.vti` views of the v4 soils and of the pilot pairs | — |
-| `tree/` | tree attributes, and the CPlantBox growth call itself | [tree/README.md](tree/README.md) |
-| `parameters/` | `Picea_Abies_combined_v6.xml`, 7 root subtypes | — |
+| `tree/` | tree attributes, the species registry, and the CPlantBox growth call itself | [tree/README.md](tree/README.md) |
+| `parameters/` | CPlantBox parameter files, one per tree (`my_Picea_abies.xml`, `my_Quercus_robur.xml`, `my_Aesculus_hippocastanum.xml`) and the tested variants (`my_Quercus_robur_T4.xml`...); `Picea_Abies_combined_v6.xml` is the tree of the v3 and v4 pilots made before the multi-tree change; the species is read from the file-name prefix | — |
 
 Shared, at the root:
 
@@ -119,11 +122,11 @@ Shared, at the root:
 | `site_request_v3.schema.json` | the v4 contract (`site_request/v3`): city, soil layers or barriers, walls, water modules; no water or resistance as input |
 | `apply_secondary_growth.py` | CLI: re-radius an existing `.vtp` |
 | `visualise_example.py` | CLI: one self-contained HTML page per v1 example |
-| `build_dataset.py`, `build_dataset_v3.py`, `build_dataset_v4.py` | CLI, parallelisation, resumability |
+| `build_dataset.py`, `build_dataset_v3.py`, `build_dataset_v4.py` | CLI, parallelisation, resumability; `build_dataset_v3.py` requires `--tree` |
 | `compare_scenes.py` | CLI: two folders of scenes, array by array — the proof that a refactor left v3 unchanged |
 | `compare_pilot_v4.py` | CLI: a v4 pilot against v3, pair by pair and per profile, city and module |
 | `build_dataset_v2_hybrid.py` | CLI: dataset v2 → 17 hybrid channels + `prior_v2`, no simulation |
-| `measure_hybrid_readiness.py` | CLI: Dice of the priors and target mass under the masks, on any hybrid-format folder |
+| `measure_hybrid_readiness.py` | CLI: Dice of the priors and target mass under the masks, on any hybrid-format folder; on `dataset_v3/` it writes one `readiness.json` per tree folder |
 | `measure_training_ranges.py` | CLI: validates every site request of a dataset and rewrites the contract's training ranges |
 
 ---
@@ -134,6 +137,13 @@ Build the image once, from the repository root:
 
 ```bash
 docker build -t cplantbox-image .
+```
+
+After any change in `CPlantBox-master/src` (C++), rebuild the image: the Dockerfile replaces `/app/src`
+with `CPlantBox-master/src`. In PowerShell, keeping a log:
+
+```powershell
+docker build --progress=plain -t cplantbox-image . 2>&1 | Tee-Object build.log
 ```
 
 Open a container with the repository mounted:
@@ -148,13 +158,14 @@ docker run --rm -it \
 Then:
 
 ```bash
-python3 code_val/build_dataset_v3.py --pilot           # 20 scenes spread over the design
-python3 code_val/build_dataset_v3.py                   # the 2000 scenes, about 1 h 15 on 23 workers, 20 GB
-python3 code_val/build_dataset_v3.py --scenes 50 --runs 5 --vtp
-python3 code_val/build_dataset.py --pilot              # v1, 5 configurations
+python3 code_val/build_dataset_v3.py --tree my_Picea_abies.xml --pilot   # 20 scenes spread over the design
+python3 code_val/build_dataset_v3.py --tree my_Picea_abies.xml           # the 2000 scenes of one tree, about 1 h 15 on 23 workers, 20 GB
+python3 code_val/build_dataset_v3.py --tree my_Quercus_robur.xml my_Aesculus_hippocastanum.xml --scenes 50 --runs 5 --vtp
 python3 code_val/build_dataset_v4.py --pilot           # v4, scenes 1-128 paired with v3, about 9 min
 python3 code_val/compare_pilot_v4.py code_val/dataset_v3 code_val/pilot_v4
-python3 code_val/sandbox/sandbox_v2.py --hydro         # one scene per archetype, to look at
+python3 code_val/sandbox/sandbox_v3.py --tree my_Quercus_robur_T4.xml --runs 3 --no-street
+python3 code_val/sandbox/sandbox_v2.py --tree my_Picea_abies.xml --hydro  # one scene per archetype, to look at
+python3 code_val/build_dataset.py --pilot              # v1, does not run since --tree (see above)
 ```
 
 The three analysis CLIs need only numpy, scipy and jsonschema, and run on the host:
@@ -164,6 +175,8 @@ python code_val/measure_training_ranges.py                         # after a v3 
 python code_val/measure_hybrid_readiness.py --dataset code_val/dataset_v3
 python code_val/build_dataset_v2_hybrid.py                         # once, for the v2 files
 ```
+
+`build_dataset_v3.py` writes one `design.json` per tree folder, with the XML name and its fingerprint.
 
 Both generators are **resumable**: a scene already on disk is skipped. Both write a `design.json`
 on the first run and **refuse a re-run with different settings** — a scene identifier only means
@@ -176,7 +189,7 @@ Without `--workers` the pool uses `os.cpu_count() - 1` **as seen inside the cont
 
 ## Output
 
-`dataset_v3/`, or `pilot_v3/` with `--pilot`. Four files per scene:
+`dataset_v3/<xml>/`, or `pilot_v3/<xml>/` with `--pilot`: one folder per tree (`dataset_v3/my_Quercus_robur_T4/`), each with its `design.json`. Four files per scene:
 
 | File | Contents |
 |---|---|
@@ -200,12 +213,14 @@ recomputed over any subset of runs without simulating again.
 | Hydrotropic subtypes | 5 and 6, `tropismT = 3`, strength 0.10 |
 | Time step | 10 days |
 | Tree age | drawn uniformly in [5, 120] years |
-| Largest `dx` in the XML | 3.0 cm — the 4 cm pipe exclusion margin has to exceed it, and an assertion checks that at startup |
+| Largest `dx` in the XML | 3.0 cm in the Picea file — the 4 cm pipe exclusion margin has to exceed it, and an assertion checks every XML given with `--tree` at startup |
 
 ## Limits that apply to the whole pipeline
 
-- **Beyond 60 years the XML is extrapolated** (`simulationTime` = 21 900 days), and it carries no
+- **Beyond 60 years the Picea XML is extrapolated** (`simulationTime` = 21 900 days), and it carries no
   botanical citation: it was calibrated on visual plausibility.
+- **Oak and horse-chestnut parameters are provisional**: the horse chestnut borrows the oak's
+  `depth_decay_beta`, and every species uses the Picea secondary-growth prior (`tree/species.py`).
 - **No dynamic water balance.** The matric potential is static; a climate would only make sense
   as a factor of the experimental design, with its own FiLM slots.
 - **The `prior` channel is a strong radial prior** — exactly what a network copies while ignoring

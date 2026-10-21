@@ -1,7 +1,7 @@
 # tree — the tree, and the CPlantBox call itself
 
-Two files. One draws what the tree *is*, the other is the only place in the repository that
-actually runs CPlantBox.
+Three files. One draws what the tree *is*, one lists the species of the project, the last is the
+only place in the repository that actually runs CPlantBox.
 
 ## Step by step
 
@@ -16,7 +16,7 @@ actually runs CPlantBox.
    parameter set. The v3 generator always wires both; v2 wired `f_se` only.
 4. **`growth.py::assign_hydrotropism`** — `setSoil()` plus `tropismT = 3` on the hydrotropic
    subtypes. Must run **before** `initialize()`.
-5. **`growth.py::grow_plant`** — `readParameters` → `setSeed` → `setGeometry` → hooks →
+5. **`growth.py::grow_plant`** — `readParameters` (the XML named by `tree`, in `PARAMETERS_DIRECTORY`) → `setSeed` → `setGeometry` → hooks →
    `initialize(False)` → `simulate(10 days)` in a loop until the tree's age → optional `write()`.
 6. **`growth.py::extract_root_system`** — nodes and segment edges to a `(N, 6)` array plus the
    subtype per segment. v2 skips this and reads polylines directly
@@ -26,7 +26,8 @@ actually runs CPlantBox.
 
 | File | Responsibility |
 |---|---|
-| `attributes.py` | species, age, and the allometries; the species and architecture slots used by both FiLM builders |
+| `attributes.py` | species, age, and the allometries |
+| `species.py` | the registry: one record per species (architecture, XML prefixes, depth decay of the prior, secondary growth), the species and architecture slots of the FiLM vector, `identify_species`, `hash_xml`, `PARAMETERS_DIRECTORY` |
 | `growth.py` | the soil lookups, the three CPlantBox hooks, the simulation loop, and the segment extraction |
 
 ## The traps, all of them in `growth.py`
@@ -55,12 +56,12 @@ actually runs CPlantBox.
 
 | | |
 |---|---|
-| Parameter file | `../parameters/Picea_Abies_combined_v6.xml`, 7 root subtypes |
+| Parameter files | `../parameters/my_<Species>.xml`, one per tree, and the tested variants; the species is the file-name prefix (`species.py`) |
 | Subtypes | 1 juvenile primary axis · 2 structural plate laterals · 3 fine transport roots · 4 structural sinkers · 5 absorbing short roots · 6 exploratory laterals · 7 deep sub-sinkers |
 | Structural (target) | 1, 2, 4, 6, 7 — defined in `dataset/occupancy.py`, single source of truth |
 | Hydrotropic | 5 and 6, `tropismT = 3`, `tropismS = 0.10` |
 | Time step | 10 days |
-| Largest `dx` | 3.0 cm |
+| Largest `dx` | 3.0 cm in the Picea file |
 | Cost | roughly 0.2 s for 60 years and 0.5 s for 120 years, per simulation |
 
 ## Choices and limits
@@ -74,6 +75,10 @@ actually runs CPlantBox.
   advances, so a root finishes its last step inside the first cell where `f_se = 0`. Measured on
   dataset v2: 5 % of the target mass sits in cells with `f_se < 1e-3`, 99.9 % of it one cell away
   from growable soil. A hard mask must be eroded by that one cell (`hybrid/masks.py`).
+- **The order of `SPECIES` is a contract.** It is the order of the species slots of the FiLM vector:
+  never reorder it, and add a species at the end.
+- **Oak and horse chestnut are provisional**: the horse chestnut borrows the oak's `depth_decay_beta`,
+  and every species carries the Picea secondary-growth prior.
 - **Allometries are the specification's, not measurements.** DBH, height and crown depth are
   placeholders.
 - **Beyond 60 years the XML is extrapolated.** `simulationTime` is 21 900 days while ages are

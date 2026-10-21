@@ -1,3 +1,4 @@
+.vscode
 /.devcontainer
 /CPlantBox-master.zip
 /Dockerfile
@@ -18,8 +19,12 @@
 /code_val/pilot_v1
 /code_val/dataset_v2
 /code_val/dataset_v2_
-/code_val/sandbox_v1
-/code_val/sandbox_v2
+/code_val/sandbox/sandbox_v1
+/code_val/sandbox/sandbox_v1_*
+/code_val/sandbox/sandbox_v2
+/code_val/sandbox/sandbox_v2_*
+/code_val/sandbox/sandbox_v3
+/code_val/sandbox/sandbox_v3_*
 /code_val/pilot_v2
 code_val/pilot_v2/
 code_val/dataset_v2_runs/
@@ -29,3 +34,6 @@ code_val/dataset_v2_runs/
 /code_val/dataset_v4
 /code_val/pilot_v4
 /code_val/tmp
+
+/code_val/local
+/code_val/inference

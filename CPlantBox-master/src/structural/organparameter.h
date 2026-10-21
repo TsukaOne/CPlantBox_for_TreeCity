@@ -24,6 +24,9 @@ class GrowthFunction;
 class ExponentialGrowth;
 class Tropism;
 
+/// Special value of OrganRandomParameter::successorWhere (xml: where="apex"): the rule is only applied at the last linking node
+constexpr double SUCCESSOR_APEX = 1.0e9;
+
 /**
  * Parameters for a specific organ
  */
@@ -86,7 +89,7 @@ public:
 	double ldelay = -1.; ///< Lateral emergence delay [day], used by RootDelay, @see RootDelay, RootSystem::initializeDB or if Organism->delayDefinition != Organism::dd_distance
     double ldelays = 0.; ///< Standard deviation of lateral emergence delay [day]
     std::vector<std::vector<double> > successorWhere = std::vector<std::vector<double>>(0, std::vector<double> (0, 0));
-    ///< Where should rule be implemented [1] or not [-1]; need to use double to distiguish between -0 and 0; default: vector empty == rule implemented everywhere
+    ///< Where should rule be implemented [1] or not [-1]; need to use double to distiguish between -0 and 0; default: vector empty == rule implemented everywhere; SUCCESSOR_APEX == rule implemented at the last linking node only
     std::vector<std::vector<int> > successorOT = std::vector<std::vector<int>>(0, std::vector<int> (0, 0)); ///< Lateral types [1]
     std::vector<std::vector<int> > successorST = std::vector<std::vector<int>>(0, std::vector<int> (0, 0)); ///< Lateral types [1]
     std::vector<std::vector<double>> successorP = std::vector<std::vector<double>>(0, std::vector<double> (0, 0)); ///< Probabilities of lateral type to emerge (sum of values == 1) [1]

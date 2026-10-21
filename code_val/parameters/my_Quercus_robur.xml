@@ -1,0 +1,262 @@
+<!--
+Quercus robur (chene pedoncule), architecture pivotante, simulation de 120 ans.
+
+ARCHITECTURE
+  Un pivot central profond (ST1, gravitropisme) porte les charpentieres laterales (ST2), les obliques descendantes (ST4),
+  des fines (ST3) et des racines profondes (ST7). Aucune racine n'est forcee vers la surface.
+  Ordres : O0 pivot (1) puis O1 charpentieres (2), obliques (4), fines (3), puis O2 secondaires (6), fines (3), puis O3 fines (3), puis O4 absorbantes (5).
+  Un sous-type ne cree jamais son propre sous-type : pas de buisson recursif.
+
+SOUS-TYPES 
+  1 pivot central           2 charpentiere laterale (O1)      3 fine de transport
+  4 oblique descendante     5 absorbante courte               6 laterale secondaire (O2)
+  7 contournement profond
+
+
+
+GLOSSAIRE DES PARAMETRES (blocs root de CPlantBox)
+  a          rayon de la racine a sa naissance (cm). CPlantBox ne le fait pas evoluer : l'epaississement est refait apres coup par secondary_growth/.
+  r          vitesse initiale de croissance (cm/jour). Avec gf = 1 : l(t) = lmax * (1 - exp(-r*t/lmax)).
+  lmax       longueur maximale de l'axe (cm).
+  rlt        duree de vie de la racine (jours). 1e+09 = ne meurt jamais.
+  la         longueur de la zone apicale, sans laterales (cm).
+  lb         longueur de la zone basale, sans laterales (cm).
+  ln         distance entre deux points de ramification (cm). 0 = pas de laterale.
+  lnk        pente de variation de ln le long de l'axe (cm par cm). 0 = ln constant.
+  theta      angle d'insertion par rapport au cap du parent (rad). 0.45 = 26 deg, 1.00 = 57 deg, 1.44 = 82.5 deg.
+  dx         longueur maximale d'un segment (cm). C'est a la fois le pas de croissance et la distance d'anticipation du tropisme.
+  dxMin      longueur minimale d'un segment (cm).
+  ldelay     delai d'emergence des laterales (jours). -1 = deduit de la loi de croissance.
+  gf         fonction de croissance : 1 = exponentielle negative, 2 = lineaire.
+  dev        ecart-type du tirage normal du parametre, un tirage par racine.
+  successor  regle de ramification. ruleId : numero de la regle (une regle = un tirage independant a chaque point de ramification). numLat : nombre de tirages par point (chacun cree au plus une laterale). subType : sous-type cree.
+             organType : 2 = racine. percentage : probabilite que la regle cree sa racine a un point de ramification (somme <= 1 pour un meme ruleId).
+             where : numeros des points de ramification concernes (0 = le premier, a la fin de la zone basale), separes par des virgules ;
+             absent ou vide = tous les points. La valeur apex designe le dernier point de ramification : la racine fille nait alors
+             environ la cm derriere la pointe de sa mere, et seulement si la mere atteint la fin de sa zone de ramification.
+             L'attribut s'ecrit en minuscules : un attribut ecrit Where n'est pas lu, la regle s'applique alors a tous les points.
+  seed       seedPos : position du collet (cm), z = -3 soit 3 cm sous la surface. simulationTime : duree simulee, 43800 jours = 120 ans.
+             maxB, firstB, delayB, nC, nz, maxTil, delay*, first* : racines adventives et partie aerienne, neutralises (0 ou 1e+09).
+
+
+
+TROPISMES (tropismT, tropismN, tropismS), d'apres tropism.cpp et tropism.h
+  Principe : a chaque pas, la racine tire un cap candidat (ecart a ~ Normal(0, S*racine(dx)) autour du cap courant, azimut uniforme),
+  puis N*racine(dx) candidats supplementaires (la partie fractionnaire est arrondie au hasard). Elle garde celui qui minimise l'objectif
+  du tropisme. Les ecarts ne s'ajoutent donc pas au cap : ils sont SELECTIONNES.
+
+  tropismT, le type de tropisme (objectif minimise) :
+    0  plagiotropisme : prefere un cap horizontal.
+    1  gravitropisme : prefere descendre.
+    2  exotropisme : prefere garder le cap initial de la racine (cap d'emergence).
+    3  hydrotropisme : prefere se diriger vers les zones les plus humides (champ d'eau fourni par setSoil()).
+       Dans ce projet, quand ce champ est branche, growth.py l'impose aux sous-types 5 et 6 avec S = 0.10 :
+       leur T et leur S dans ce fichier ne s'appliquent alors plus, seul leur N reste utilise.
+    D'autres tropismes existent dans CPlantBox (antigravitropisme, torsion...) mais ne sont pas utilises ici.
+
+  tropismN, l'intensite de la selection (nombre d'essais = N*racine(dx)) :
+    N = 0       aucune selection : le tropisme est inactif et le cap fait une marche aleatoire.
+    N faible    (0.1 a 1) selection partielle : la racine meandre et ne rejoint que lentement la direction preferee.
+    N moyen     (1 a 4) selection nette : la racine suit sa direction preferee avec une legere agitation autour d'elle.
+    N eleve     (4 et plus) la meilleure candidate est presque toujours quasi optimale : racine quasi rectiligne, redressement rapide.
+
+  tropismS, l'amplitude de l'agitation. L'ecart-type de l'angle tire a chaque pas vaut S x racine(dx), en radians
+  (avec dx = 2 cm : S = 0.03 donne environ 2.4 deg, S = 0.10 environ 8 deg, S = 0.30 environ 24 deg) :
+    S faible    (moins de 0.03) les caps candidats restent tres proches du cap courant : la racine ne peut tourner que tres
+                lentement, elle est rigide et garde son cap meme si N selectionne fortement une autre direction.
+    S moyen     (0.03 a 0.10) virages moderes : la racine peut se redresser ou meandrer en gardant une trajectoire lisse.
+    S eleve     (plus de 0.10) virages vifs : avec un N suffisant la racine rejoint vite sa direction preferee ;
+                avec un N faible elle devient tres sinueuse.
+
+  Le meandre vient du rapport entre les deux : N faible ET S eleve = racine sinueuse ; N eleve ET S faible = racine droite.
+  dx agit sur les deux : plus il est grand, plus il y a d'essais et d'ecart par pas.
+-->
+<plant>
+	<seed name="Quercus_robur" subType="0">
+		<parameter name="seedPos.x" value="0"/>
+		<parameter name="seedPos.y" value="0"/>
+		<parameter name="seedPos.z" value="-3"/>
+		<parameter name="simulationTime" value="43800"/>
+		<parameter name="a" value="0.18"/>
+		<parameter name="dx" value="1.0"/>
+		<parameter name="dxMin" value="1e-06"/>
+		<parameter name="maxB" value="0" dev="0"/>
+		<parameter name="firstB" value="1e+09"/>
+		<parameter name="delayB" value="1e+09"/>
+		<parameter name="nC" value="0"/>
+		<parameter name="nz" value="0"/>
+		<parameter name="delayDefinition" value="0"/>
+		<parameter name="delayDefinitionShoot" value="0"/>
+		<parameter name="maxTil" value="0"/>
+		<parameter name="delayRC" value="1e+09"/>
+		<parameter name="delaySB" value="1e+09"/>
+		<parameter name="delayTil" value="1e+09"/>
+		<parameter name="firstSB" value="1e+09"/>
+		<parameter name="firstTil" value="1e+09"/>
+		<parameter name="ldelay" value="-1"/>
+	</seed>
+	<!--   ST1 : pivot central gravitrope, ancrage profond, qui porte les charpentieres ST2, les obliques ST4, des fines ST3 et un relais profond ST7 a son extremite.   -->
+	<root name="pivot_taproot" subType="1">
+		<parameter name="a" value="0.40" dev="0.05"/>
+		<parameter name="r" value="1.0"/>
+		<parameter name="lmax" value="250" dev="60"/>
+		<parameter name="rlt" value="1e+09"/>
+		<parameter name="la" value="5.0"/>
+		<parameter name="lb" value="8"/>
+		<!--   ln = 14 cm : un point de ramification tous les 14 cm, soit environ 18 points sur un pivot de 250 cm ((lmax - la - lb) / ln + 1).
+		     Les charpentieres ST2 ne naissent que sur les 5 premiers points (where, environ 70 cm), par deux regles independantes a 60 % : environ 6 par arbre.
+		     Les obliques ST4 (14 %) et les fines ST3 (15 %) naissent sur tous les points.   -->
+		<parameter name="ln" value="14" dev="2"/>
+		<parameter name="lnk" value="0"/>
+		<parameter name="theta" value="0.05" dev="0.02"/>
+		<parameter name="dx" value="2.0"/>
+		<parameter name="dxMin" value="1e-06"/>
+		<parameter name="ldelay" value="-1"/>
+		<parameter name="gf" value="1"/>
+		<parameter name="tropismT" value="1"/>
+		<!--   Le pivot reste globalement vertical sans etre rectiligne : N faible, S moyen.   -->
+		<parameter name="tropismN" value="0.5"/>
+		<parameter name="tropismS" value="0.06"/>
+		<parameter name="successor" ruleId="0" numLat="1" where="0,1,2,3,4" subType="2" organType="2" percentage="0.60"/>
+		<parameter name="successor" ruleId="1" numLat="1" Where="" subType="4" organType="2" percentage="0.14"/>
+		<parameter name="successor" ruleId="2" numLat="1" Where="" subType="3" organType="2" percentage="0.15"/>
+		<!--   Relais profond ST7 (25 %) : where="apex" = dernier point de ramification du pivot seulement.   -->
+		<parameter name="successor" ruleId="3" numLat="1" where="apex" subType="7" organType="2" percentage="0.25"/>
+		<parameter name="successor" ruleId="4" numLat="1" where="0,1,2,3,4" subType="2" organType="2" percentage="0.60"/>
+	</root>
+	<!--   ST2 : charpentieres laterales longues et exotropes, nees a 82.5 deg du pivot.   -->
+	<root name="structural_lateral_roots" subType="2">
+		<parameter name="a" value="0.023" dev="0.003"/>
+		<!--   dev sur r : sans lui, toutes les laterales jeunes auraient la meme longueur.   -->
+		<parameter name="r" value="0.24" dev="0.05"/>
+		<parameter name="lmax" value="600" dev="200"/>
+		<parameter name="rlt" value="1e+09"/>
+		<parameter name="la" value="5.0" dev="0.5"/>
+		<parameter name="lb" value="6"/>
+		<parameter name="ln" value="18" dev="2.5"/>
+		<parameter name="lnk" value="0"/>
+		<!--   1.57 rad = 90 deg : a l'horizontale a la naissance.   -->
+		<parameter name="theta" value="1.57" dev="0.04"/>
+		<parameter name="dx" value="2.0"/>
+		<parameter name="dxMin" value="1e-06"/>
+		<parameter name="ldelay" value="-1"/>
+		<parameter name="gf" value="1"/>
+		<!--   T = 2 : elle garde son cap, sans etre plaquee dans un plan horizontal.   -->
+		<parameter name="tropismT" value="2"/>
+		<!--   N faible et S moyen : leger meandre autour du cap. N n'influence pas l'evitement des tuyaux, gere par un mecanisme separe de CPlantBox.   -->
+		<parameter name="tropismN" value="0.05"/>
+		<parameter name="tropismS" value="0.10"/>
+		<parameter name="successor" ruleId="0" numLat="1" Where="" subType="3" organType="2" percentage="0.48"/>
+		<parameter name="successor" ruleId="1" numLat="1" where="0,1,2,3,4,5,6,7,8,9,10,11,12,13" subType="6" organType="2" percentage="0.12"/>
+		<!--   ST4 (15 %) seulement sur les 14 premiers points de la charpentiere (where, environ 240 cm du tronc) : ces racines profondes restent pres du tronc.   -->
+		<parameter name="successor" ruleId="2" numLat="1" where="0,1,2,3,4,5,6,7,8,9,10,11,12,13" subType="4" organType="2" percentage="0.15"/>
+	</root>
+	<!--   ST3 : fines de transport exotropes, qui explorent en 3D, de duree de vie d'environ 15 mois.   -->
+	<root name="fine_transport_roots" subType="3">
+		<parameter name="a" value="0.0225" dev="0.003"/>
+		<parameter name="r" value="0.24" dev="0.03"/>
+		<parameter name="lmax" value="14" dev="3"/>
+		<parameter name="rlt" value="451" dev="6"/>
+		<parameter name="la" value="2.0"/>
+		<parameter name="lb" value="0.5"/>
+		<!--   ln = 0.40 cm (ecart-type 0.08) : distance moyenne entre deux ramifications le long d'une fine.   -->
+		<parameter name="ln" value="0.40" dev="0.08"/>
+		<parameter name="lnk" value="0"/>
+		<parameter name="theta" value="1.44" dev="0.10"/>
+		<parameter name="dx" value="0.6"/>
+		<parameter name="dxMin" value="1e-06"/>
+		<parameter name="ldelay" value="-1"/>
+		<parameter name="gf" value="1"/>
+		<!--   T = 2 : les fines gardent leur cap d'emergence et explorent en 3D, sans etre aplaties dans un plan horizontal.   -->
+		<parameter name="tropismT" value="2"/>
+		<parameter name="tropismN" value="6"/>
+		<parameter name="tropismS" value="0.08"/>
+		<parameter name="successor" ruleId="0" numLat="1" Where="" subType="5" organType="2" percentage="0.18"/>
+	</root>
+	<!--   ST4 : obliques descendantes, presque horizontales a la naissance puis redressees par le gravitropisme.   -->
+	<root name="structural_sinkers" subType="4">
+		<parameter name="a" value="0.023" dev="0.003"/>
+		<parameter name="r" value="0.24" dev="0.04"/>
+		<parameter name="lmax" value="120" dev="30"/>
+		<parameter name="rlt" value="1e+09"/>
+		<parameter name="la" value="4.0" dev="0.5"/>
+		<parameter name="lb" value="2"/>
+		<parameter name="ln" value="12" dev="3"/>
+		<parameter name="lnk" value="0"/>
+		<!--   1.1 rad = 63 deg : naissent en biais, plus raides qu'a 82.5 deg.   -->
+		<parameter name="theta" value="1.1" dev="0.04"/>
+		<parameter name="dx" value="2.0"/>
+		<parameter name="dxMin" value="1e-06"/>
+		<parameter name="ldelay" value="-1"/>
+		<parameter name="gf" value="1"/>
+		<parameter name="tropismT" value="1"/>
+		<!--   N faible : selection partielle, le gravitropisme redresse lentement ces racines nees presque horizontales.   -->
+		<parameter name="tropismN" value="0.5"/>
+		<parameter name="tropismS" value="0.12"/>
+		<parameter name="successor" ruleId="0" numLat="1" Where="" subType="3" organType="2" percentage="0.20"/>
+		<!--   Relais profond ST7 (20 %) : where="apex" = dernier point de ramification de la ST4 seulement.   -->
+		<parameter name="successor" ruleId="1" numLat="1" where="apex" subType="7" organType="2" percentage="0.20"/>
+	</root>
+	<!--   ST5 : absorbantes courtes, racines terminales de duree de vie d'environ 11 mois.   -->
+	<root name="absorbing_short_roots" subType="5">
+		<parameter name="a" value="0.0225" dev="0.003"/>
+		<parameter name="r" value="0.24" dev="0.03"/>
+		<parameter name="lmax" value="4.5" dev="1.0"/>
+		<parameter name="rlt" value="347" dev="7"/>
+		<parameter name="la" value="2.0"/>
+		<parameter name="lb" value="0"/>
+		<parameter name="ln" value="0"/>
+		<parameter name="lnk" value="0"/>
+		<parameter name="theta" value="1.44" dev="0.10"/>
+		<parameter name="dx" value="0.4"/>
+		<parameter name="dxMin" value="1e-06"/>
+		<parameter name="ldelay" value="-1"/>
+		<parameter name="gf" value="1"/>
+		<parameter name="tropismT" value="2"/>
+		<parameter name="tropismN" value="4"/>
+		<parameter name="tropismS" value="0.10"/>
+	</root>
+	<!--   ST6 : laterales secondaires (O2) des charpentieres, exotropes, sans bande de profondeur imposee.   -->
+	<root name="secondary_laterals" subType="6">
+		<parameter name="a" value="0.023" dev="0.003"/>
+		<parameter name="r" value="0.24" dev="0.04"/>
+		<parameter name="lmax" value="150" dev="45"/>
+		<parameter name="rlt" value="1e+09"/>
+		<parameter name="la" value="3.5" dev="0.5"/>
+		<parameter name="lb" value="2"/>
+		<parameter name="ln" value="10" dev="2"/>
+		<parameter name="lnk" value="0"/>
+		<parameter name="theta" value="1.44" dev="0.04"/>
+		<parameter name="dx" value="2.8"/>
+		<parameter name="dxMin" value="1e-06"/>
+		<parameter name="ldelay" value="-1"/>
+		<parameter name="gf" value="1"/>
+		<parameter name="tropismT" value="2"/>
+		<!--   N = 0.1 et S = 0.10 : leger meandre. Quand le champ d'eau est branche, le T et le S de ce sous-type sont remplaces (T = 3, S = 0.10) : seul N reste utilise.   -->
+		<parameter name="tropismN" value="0.1"/>
+		<parameter name="tropismS" value="0.10"/>
+		<parameter name="successor" ruleId="0" numLat="1" Where="" subType="3" organType="2" percentage="0.40"/>
+		<parameter name="successor" ruleId="1" numLat="1" Where="" subType="5" organType="2" percentage="0.20"/>
+	</root>
+	<!--   ST7 : racines de contournement profond, relais nes a l'extremite du pivot ou d'une oblique, qui font un pas de cote puis redescendent.   -->
+	<root name="deep_bypass_roots" subType="7">
+		<parameter name="a" value="0.023" dev="0.003"/>
+		<parameter name="r" value="0.24" dev="0.04"/>
+		<parameter name="lmax" value="220" dev="60"/>
+		<parameter name="rlt" value="1e+09"/>
+		<parameter name="la" value="3.0"/>
+		<parameter name="lb" value="0"/>
+		<parameter name="ln" value="12" dev="3"/>
+		<parameter name="lnk" value="0"/>
+		<!--   0.9 rad = 52 deg : part en biais vers le bas, le gravitropisme finit de la redresser.   -->
+		<parameter name="theta" value="0.9" dev="0.04"/>
+		<parameter name="dx" value="2.0"/>
+		<parameter name="dxMin" value="1e-06"/>
+		<parameter name="ldelay" value="-1"/>
+		<parameter name="gf" value="1"/>
+		<parameter name="tropismT" value="1"/>
+		<parameter name="tropismN" value="0.3"/>
+		<parameter name="tropismS" value="0.10"/>
+		<parameter name="successor" ruleId="0" numLat="1" Where="" subType="3" organType="2" percentage="0.20"/>
+	</root>
+</plant>

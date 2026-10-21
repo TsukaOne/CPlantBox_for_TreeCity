@@ -16,7 +16,8 @@ from obstacles.layouts import (
 from soil.archetypes import ARCHETYPES, PIT_SUBSTRATE_ARCHETYPE
 from soil.pit import TREE_PIT_DEPTH_RANGE_CM
 from soil.profile import SoilProfile, draw_soil_profile
-from tree.attributes import PICEA_ABIES, TreeAttributes, draw_tree_attributes
+from tree.attributes import TreeAttributes, draw_tree_attributes
+from tree.species import PICEA_ABIES
 
 MONTE_CARLO_RUNS = 50
 DRAWS_PER_COMBINATION = 9

@@ -5,7 +5,8 @@ assembled; the physics lives in [`soil/`](../soil/README.md), the street in
 [`network/`](../network/README.md), the growth in [`tree/`](../tree/README.md) and the radii in
 [`secondary_growth/`](../secondary_growth/README.md).
 
-Driven by `../build_dataset_v3.py`. The package produced dataset v2 on 2026-09-22 (commit
+Driven by `../build_dataset_v3.py`, one CPlantBox parameter file per tree (`--tree`) and one output
+folder per tree. The package produced dataset v2 on 2026-09-22 (commit
 `1b52cfb`, old θ → ψ water model, no `f_sa`) and has evolved in place since: **it no longer
 reproduces the v2 files**. To derive anything from v2, read its `.npz` and `.vti` back
 (`../build_dataset_v2_hybrid.py`), never rebuild its environment with this code.
@@ -20,6 +21,9 @@ Per scene:
    `NOISE` — through `default_rng([master_seed, identifier, domain])`. Re-tuning one domain
    therefore never reshuffles the others: the same scene number keeps the same tree when you
    change the street code. Draws the tree, the pit, the soil mosaic, the street and its leaks.
+   `tree_xml` (keyword-only, required) names the CPlantBox parameter file and
+   `tree.species.identify_species` reads the species from its prefix. Soil, pit, street and seeds
+   do not depend on it: the same identifier is the same scene for every tree.
 2. **`environment.py::build_environment` — the soil the roots will actually feel.**
    The order carries the reasoning and must not be permuted:
 
@@ -41,13 +45,14 @@ Per scene:
    packs the individual runs bit by bit, keeps the first run's polylines, builds `prior_v2`, and
    collects the diagnostics.
 5. **`tensors.py`** builds the 19 input channels and the FiLM vector.
-6. **`writer.py`** writes `.npz`, `.vti`, `site_request/scene_XXXXX.json` and — last — `.json`.
+6. **`writer.py`** writes `.npz`, `.vti` (skipped with `write_vti=False`, as the sandbox does),
+   `site_request/scene_XXXXX.json` and — last — `.json`.
 
 ## Who does what
 
 | File | Responsibility |
 |---|---|
-| `scene.py` | the experimental design and every seed; `SceneConfiguration` is the complete description of a scene |
+| `scene.py` | the experimental design and every seed; `SceneConfiguration` is the complete description of a scene, XML included |
 | `environment.py` | soil + street → the fields, the two CPlantBox lookups and the growth geometry |
 | `polylines.py` | reads the polylines out of a *live* plant, without a round trip through a `.vtp` |
 | `voxelise.py` | polylines → centreline and radius grids per diameter class, root-volume grid |
@@ -127,6 +132,10 @@ FiLM is 3 species slots + 3 architecture slots + 7 scalars, ending with the util
 
 ## Choices and limits
 
+- **One folder per tree.** `build_dataset_v3.py` writes `<dataset>/<xml stem>/`, with a `design.json`
+  holding the settings, the XML name and its fingerprint; a re-run with other settings or a modified
+  XML is refused. The descriptor also stores `versions.xml` and `versions.xml_sha256`. The
+  `request_id` of the site request starts with the name of this folder, not with the dataset name.
 - **`is_complete()` tests the `.json`, not the `.npz`.** v1 tested the archive, so an archive
   truncated by an interruption looked finished. Both the `.npz` and the `.json` are now written
   to a temporary file and renamed.
@@ -137,8 +146,8 @@ FiLM is 3 species slots + 3 architecture slots + 7 scalars, ending with the util
   `apply_secondary_growth.py` CLI, which writes them as calibration witnesses.
 - **Intrusions are reported, not asserted.** `diagnostics["intrusions"]` carries the penetration
   depth per pipe; a graze and a three-centimetre push are different bugs.
-- **The scene varies here, not in the sandbox.** `sandbox/sandbox_v2.py` deliberately freezes the
-  street so a difference between two runs can only come from the soil.
+- **The scene varies here, not in the sandbox.** `sandbox/sandbox_v3.py` deliberately freezes the
+  pit and the street so a difference between two runs can only come from the soil.
 - **The site request describes what a user would enter, not the voxels.** Horizons before the
   spatial noise, θ rebuilt from the water fraction with each horizon's own Rosetta curve, points
   permuted from the generator's (x, y, z) to the contract's `[row, column, z]`. The fills and the

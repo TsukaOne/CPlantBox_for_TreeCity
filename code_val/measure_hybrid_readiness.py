@@ -5,6 +5,10 @@ k = taux de base / moyenne du prior. Le document situe le prior geometrique a 0,
 prediction parfaitement calibree (p = t) a 0,233 : ce second chiffre controle que ce Dice est bien
 celui de l'entrainement.
 Phase C : part de la cible dans les voxels qu'un masque dur interdirait.
+
+Sur un dossier de scenes, un rapport readiness.json y est ecrit. Sur dataset_v3/, qui contient un
+sous-dossier par arbre, un rapport est ecrit dans chaque sous-dossier : le prior et le taux de base
+different d'une espece a l'autre, une calibration commune de k les melangerait.
 """
 import argparse
 import json
@@ -70,22 +74,37 @@ def summarise_masks(scenes: list) -> dict:
     return report
 
 
+def list_scene_groups(dataset: Path) -> list:
+    """Le dossier lui-meme s'il porte des scenes, sinon un groupe par sous-dossier d'arbre."""
+    if any(dataset.glob("scene_*.npz")):
+        return [dataset]
+    return sorted(folder for folder in dataset.iterdir()
+                  if folder.is_dir() and any(folder.glob("scene_*.npz")))
+
+
+def build_report(directory: Path, pool) -> dict:
+    scenes = pool.map(measure_scene, sorted(directory.glob("scene_*.npz")), chunksize=8)
+    return {"dataset": directory.name, "scenes": len(scenes),
+            "thresholds": {"pipe_block_fraction": PIPE_BLOCK_FRACTION,
+                           "growth_block_scale": GROWTH_BLOCK_SCALE},
+            "priors": summarise_priors(scenes), "forbidden_mass": summarise_masks(scenes)}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     parser.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     arguments = parser.parse_args()
 
-    paths = sorted(arguments.dataset.glob("scene_*.npz"))
-    with Pool(arguments.workers) as pool:
-        scenes = pool.map(measure_scene, paths, chunksize=8)
+    groups = list_scene_groups(arguments.dataset)
+    if not groups:
+        raise SystemExit(f"aucun scene_*.npz dans {arguments.dataset} ni dans ses sous-dossiers")
 
-    report = {"dataset": arguments.dataset.name, "scenes": len(scenes),
-              "thresholds": {"pipe_block_fraction": PIPE_BLOCK_FRACTION,
-                             "growth_block_scale": GROWTH_BLOCK_SCALE},
-              "priors": summarise_priors(scenes), "forbidden_mass": summarise_masks(scenes)}
-    (arguments.dataset / REPORT_NAME).write_text(json.dumps(report, indent=2), encoding="utf-8")
-    print(json.dumps(report, indent=2))
+    with Pool(arguments.workers) as pool:
+        for directory in groups:
+            report = build_report(directory, pool)
+            (directory / REPORT_NAME).write_text(json.dumps(report, indent=2), encoding="utf-8")
+            print(json.dumps(report, indent=2))
 
 
 if __name__ == "__main__":

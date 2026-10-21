@@ -766,13 +766,14 @@ void Organ::createSegments(double l, double dt, bool verbose, int phytoIdx) {
  * Creates a new lateral
  *  @param dt       time step [day]
  *  @param verbose  turns console output on or off
+ *  @param isApical true if this is the last linking node of the organ (the rules with where="apex" are only applied there)
  */
-void Organ::createLateral(double dt, bool verbose) {
+void Organ::createLateral(double dt, bool verbose, bool isApical) {
     auto rp = getOrganRandomParameter(); // rename
 
     for (int i = 0; i < rp->successorST.size(); i++) { // go through each successor rule
 
-        bool applyHere = getApplyHere(i);
+        bool applyHere = getApplyHere(i, isApical);
 
         if (applyHere) {
             int numlats = 1; // how many laterals? default = 1
@@ -832,15 +833,17 @@ void Organ::createLateral(double dt, bool verbose) {
 /**
  * See if should apply successor rule at a specific linking node, @see Organ::createLateral
  *  @param i       rule id
+ *  @param isApical true if this is the last linking node of the organ, where the rules with SUCCESSOR_APEX are applied
  *  @return whether to apply the rule
  */
-bool Organ::getApplyHere(int i) const {
+bool Organ::getApplyHere(int i, bool isApical) const {
     bool applyHere;
     auto rp = getOrganRandomParameter(); // rename
     if ((rp->successorWhere.size() > i) && (rp->successorWhere.at(i).size() > 0)) {
         if (!std::signbit(rp->successorWhere.at(i).at(0))) // true if number is signed
         {                                                  // gave which linking nodes to include
-            applyHere = (std::find(rp->successorWhere.at(i).begin(), rp->successorWhere.at(i).end(), created_linking_node) != rp->successorWhere.at(i).end());
+            applyHere = (std::find(rp->successorWhere.at(i).begin(), rp->successorWhere.at(i).end(), created_linking_node) != rp->successorWhere.at(i).end())
+                        || (isApical && (std::find(rp->successorWhere.at(i).begin(), rp->successorWhere.at(i).end(), SUCCESSOR_APEX) != rp->successorWhere.at(i).end())); // SUCCESSOR_APEX: last linking node only
         } else { // gave which linking nodes to ignore
             applyHere =
                 !(std::find(rp->successorWhere.at(i).begin(), rp->successorWhere.at(i).end(), -double(created_linking_node)) != rp->successorWhere.at(i).end());

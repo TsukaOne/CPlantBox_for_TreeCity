@@ -1,4 +1,7 @@
 """Valide les site_request d'un dataset contre le contrat et y reecrit les plages d'entrainement.
+
+Un dataset peut etre un dossier de scenes, ou le dossier qui contient un sous-dossier par arbre
+(dataset_v3/<xml>/) : les plages sont alors mesurees sur l'ensemble des arbres.
 """
 import argparse
 import json
@@ -67,16 +70,25 @@ def collect_dataset(paths: list, schema: dict) -> dict:
     return buckets
 
 
+def list_site_requests(datasets: list) -> list:
+    """Les scenes de chaque dossier, ou de ses sous-dossiers par arbre quand il n'en porte pas lui-meme."""
+    paths = []
+    for dataset in datasets:
+        direct = sorted((dataset / SITE_REQUEST_SUBDIRECTORY).glob("scene_*.json"))
+        paths += direct or sorted(dataset.glob(f"*/{SITE_REQUEST_SUBDIRECTORY}/scene_*.json"))
+    return paths
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
+    parser.add_argument("--dataset", type=Path, nargs="+", default=[DEFAULT_DATASET])
     parser.add_argument("--schema", type=Path, default=SCHEMA_PATH)
     arguments = parser.parse_args()
 
     # En octets, pour rendre les fins de ligne telles quelles sous Windows comme sous Linux.
     text = arguments.schema.read_bytes().decode("utf-8")
     schema = json.loads(text)
-    paths = sorted((arguments.dataset / SITE_REQUEST_SUBDIRECTORY).glob("scene_*.json"))
+    paths = list_site_requests(arguments.dataset)
     buckets = collect_dataset(paths, schema)
     for path in list_range_paths(schema):
         if not buckets[path]:

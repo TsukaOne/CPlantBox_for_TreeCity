@@ -27,7 +27,7 @@ from hybrid.channels import GRADIENT_LENGTH_CM
 from hybrid.prior import LEAK_PRIOR_BOOST
 from paraview import write_voxel_grids
 from dataset.occupancy import STRUCTURAL_SUBTYPES
-from tree.growth import XML_PATH
+from tree.species import hash_xml
 from versions import read_commit
 
 SCENE_NAME_TEMPLATE = "scene_{identifier:05d}"
@@ -78,7 +78,8 @@ def build_descriptor(configuration: SceneConfiguration, example: Example, grid: 
                          "packed_runs": [RUN_KEYS[name] for name in PACKED_OCCUPANCIES],
                          "packed_runs_shape": [len(configuration.root_seeds), *grid.shape]},
         "hybrid": {"leak_prior_boost": LEAK_PRIOR_BOOST, "gradient_length_cm": GRADIENT_LENGTH_CM},
-        "versions": {"commit": read_commit(), "xml": XML_PATH.name},
+        "versions": {"commit": read_commit(), "xml": configuration.tree_xml,
+                     "xml_sha256": hash_xml(configuration.tree_xml)},
         "diagnostics": example.diagnostics,
     }
 
@@ -106,7 +107,7 @@ def write_json(path: Path, content: dict) -> None:
 
 
 def write_scene(directory: Path, configuration: SceneConfiguration, example: Example,
-                grid: VoxelGrid, parameters) -> Path:
+                grid: VoxelGrid, parameters, write_vti: bool = True) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     archive_path, descriptor_path, voxel_path, request_path = build_paths(directory,
                                                                          configuration.identifier)
@@ -117,7 +118,8 @@ def write_scene(directory: Path, configuration: SceneConfiguration, example: Exa
         np.savez_compressed(handle, **build_arrays(example, len(configuration.root_seeds)))
     os.replace(temporary, archive_path)
 
-    write_voxel_grids(voxel_path, example.fields, grid)
+    if write_vti:
+        write_voxel_grids(voxel_path, example.fields, grid)
     write_json(request_path, build_site_request(configuration, directory.name))
     write_json(descriptor_path, build_descriptor(configuration, example, grid, parameters))
     return archive_path

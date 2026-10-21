@@ -124,13 +124,13 @@ class Organ : public std::enable_shared_from_this<Organ> {
 
     mutable Vector3d partialIHeading; // relative initial heading (see variable mutable in case of pseudo stem (see @Leaf::heading)
 
-    virtual void createLateral(double ageLN, bool silence);                     ///< creates a new lateral, called by Root::simulate(), overriden by @see RootDelay::createLateral()
+    virtual void createLateral(double ageLN, bool silence, bool isApical = false); ///< creates a new lateral, called by Root::simulate(), overriden by @see RootDelay::createLateral(); isApical: last linking node (rules with where="apex")
     virtual void storeLinkingNodeLocalId(int numCreatedLN, bool silence) { ; }; ///<  overriden by @see Stem::storeLinkingNodeLocalId()
     virtual Vector3d getIncrement(const Vector3d &p, double sdx, int n = -1);   ///< called by createSegments, to determine growth direction. overriden by @see Leaf::getIncrement()
     void createSegments(double l, double dt, bool silence, int phytoIdx = -1);  ///< creates segments of length l, called by Root::simulate()
     virtual double getLatInitialGrowth(double dt);                              // for createLateral
     virtual double getLatGrowthDelay(int ot_lat, int st_lat, double dt) const;  // for createLateral
-    bool getApplyHere(int i) const;                                             // for createLateral
+    bool getApplyHere(int i, bool isApical = false) const;                      // for createLateral, isApical: last linking node
     std::vector<int> addIncrement;                                              // for rel2abs, abs2rel
 
     /* Up and down the organ tree */

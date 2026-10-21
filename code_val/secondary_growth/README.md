@@ -117,6 +117,9 @@ with the taper ratio §4 expects under 0.5 and the count of ambiguous topologica
 - **Continuity wins over the primary floor.** The two §4 constraints contradict each other when
   CPlantBox draws a lateral thicker than the segment carrying it. Measured: 17 nodes per file, all
   fine roots, largest gap 0.002 cm.
+- **Parameters per species.** The dataset reads them from `Species.secondary_growth`
+  (`tree/species.py`); today every species carries this *Picea abies* prior, so the oak and the horse
+  chestnut radii, and the *major* / *minor* targets, are not calibrated.
 - **The calibration is not validated.** The defaults are the §5 prior, not a measurement.
   Re-fit them on TreeCity's GPR / excavation data.
 - **Gompertz saturation is not implemented.** The power law is enough over the dataset's 5–120

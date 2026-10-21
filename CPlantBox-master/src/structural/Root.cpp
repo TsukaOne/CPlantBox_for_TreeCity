@@ -198,7 +198,7 @@ void Root::simulate(double dt, bool verbose) {
                         }
 
                         if ((p.ln.size() == created_linking_node) && (getLength(true) - s > -1e-9)) {
-                            createLateral(dt_, verbose);
+                            createLateral(dt_, verbose, true); // last linking node: also applies the rules with where="apex"
                         }
                     }
                     /* apical zone */

@@ -9,12 +9,12 @@ from soil.archetypes import (
     TOPSOIL_DEPTH_RANGE_CM,
 )
 from soil.field import SoilField
-from tree.attributes import (
-    AGE_RANGE_YEARS,
+from tree.attributes import AGE_RANGE_YEARS, TreeAttributes
+from tree.species import (
     ARCHITECTURE_OF_SPECIES,
     ARCHITECTURE_SLOTS,
+    GALE_GRIGAL_BETA,
     SPECIES_SLOTS,
-    TreeAttributes,
 )
 
 CHANNEL_SCHEMA = "v2"
@@ -23,7 +23,6 @@ CHANNEL_NAMES = (
     "pipe_mask", "pavement_mask", "obstacle_distance", "prior",
 )
 
-GALE_GRIGAL_BETA = {"picea_abies": 0.960, "quercus_robur": 0.968}
 CROWN_ROOT_ZONE_PER_DBH = 18.0
 CROWN_ROOT_ZONE_CUTOFF = 2.0
 PRIOR_FLOOR = 1e-9

@@ -9,6 +9,8 @@
 #include <iostream>
 #include <exception>
 #include <numeric>
+#include <algorithm>
+#include <cctype>
 
 namespace CPlantBox {
 
@@ -270,6 +272,31 @@ void OrganRandomParameter::readXML(std::string name, bool verbose)
     }
 }
 
+/**
+ * Checks if the value of the 'where' attribute of a successor rule is the keyword "apex",
+ * white spaces and letter case are ignored, @see OrganRandomParameter::readSuccessor
+ *
+ * @param text      value of the 'where' attribute
+ * @return          true if the value is the keyword "apex"
+ */
+static bool isApexKeyword(const char* text)
+{
+	std::string s(text);
+	s.erase(std::remove_if(s.begin(), s.end(), [](unsigned char c) { return std::isspace(c); }), s.end());
+	std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return std::tolower(c); });
+	return s == "apex";
+}
+
+/**
+ * Reads a successor rule from a single XML Tag, and adds it to the successor rules of this organ type parameter.
+ *
+ * The (lowercase) attribute 'where' selects the linking nodes at which the rule is applied:
+ * a comma separated list of linking node indices to include (the first linking node has index 0), or of negative indices to ignore,
+ * or the keyword "apex" for the last linking node only. If 'where' is missing, the rule is applied at every linking node.
+ *
+ * @param p         the XML Tag with the successor rule
+ * @param verbose   turns console output on or off
+ */
 void OrganRandomParameter::readSuccessor(tinyxml2::XMLElement* p, bool verbose)
 {
 	double p_ , defaultVald;
@@ -314,9 +341,15 @@ void OrganRandomParameter::readSuccessor(tinyxml2::XMLElement* p, bool verbose)
 		defaultVald = -0.0;
 		defaultSize = 0;//how many time do we need to repeat the value. Here: leave vectore empty == apply everywhere
 
-		cpb_queryStringAttribute(lookfor,
-					defaultVald,defaultSize, replaceByDefaultValue,
-					successorWhere.at(ruleId), p);//name, default value, vector to fill, accept not found
+		//the keyword "apex" restricts the rule to the last linking node, otherwise read the list of linking nodes
+		const char* whereText = nullptr;
+		if ((p->QueryStringAttribute("where", &whereText) == tinyxml2::XML_SUCCESS) && isApexKeyword(whereText)) {
+			successorWhere.at(ruleId).push_back(SUCCESSOR_APEX); // where="apex": last linking node only
+		} else {
+			cpb_queryStringAttribute(lookfor,
+						defaultVald,defaultSize, replaceByDefaultValue,
+						successorWhere.at(ruleId), p);//name, default value, vector to fill, accept not found
+		}
 
 		replaceByDefaultValue = false;lookfor = std::vector<std::string>{"subType","subtype","type"};//subtype (or type for backarwad compatibility)
 		defaultVal = 1.0;defaultSize = 0;

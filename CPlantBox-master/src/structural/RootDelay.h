@@ -21,7 +21,7 @@ public:
     std::string toString() const override;
 
 	protected:
-    void createLateral(double dt, bool silence) override; ///< creates a new lateral based on a delay
+    void createLateral(double dt, bool silence, bool isApical = false) override; ///< creates a new lateral based on a delay
 
 };
 

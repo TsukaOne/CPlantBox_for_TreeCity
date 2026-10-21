@@ -4,24 +4,28 @@
 
 | File | Role |
 |---|---|
-| `sandbox_v2.py` | test sandbox v2 |
+| `sandbox_v3.py` | v3 sandbox: one scene of the dataset generator at a time (network/ streets, secondary growth, diameter classes) |
+| `root_metrics.py` | root measures shared by the sandboxes: shape, length per band, occupancy shape |
+| `sandbox_v2.py` | test sandbox v2 (axis-aligned street prototype of `obstacles/`) |
 | `sandbox_v1.py` | frozen reference to v1, imported by `sandbox_v2.py --v1` |
 | `sandbox_hydro_test.py` | Test hydrotropism steers roots towards water |
 
 ## `sandbox_v2.py` — Run code
 
 ```bash
-docker run --rm -v "C:\Users\ValentinMarchand\Dev\CPlantBox_for_TreeCity:/workspaces CPlantBox_for_TreeCity" -w /workspaces/CPlantBox_for_TreeCity cplantbox-image
+docker run --rm -v "C:\Users\ValentinMarchand\Dev\CPlantBox_for_TreeCity:/workspaces/CPlantBox_for_TreeCity" -w /workspaces/CPlantBox_for_TreeCity cplantbox-image
 ```
 ```bash
-python3 code_val/sandbox/sandbox_v2.py
+python3 code_val/sandbox/sandbox_v2.py --tree my_Picea_abies.xml
 ```
 | Flag | Effect |
 |---|---|
+| `--tree XML ...` | **required**: CPlantBox parameter files (`parameters/` folder), one sub-folder of output per file |
 | *(none)* | current soil pipeline, `f_se` only |
 | `--f-sa` | also wire `f_sa`, the lateral insertion angle scale |
 | `--hydro` | also wire hydrotropism on the interpolated water field |
 | `--v1` | build the soil with the frozen v1 pipeline instead, same scenes |
+| `--no-street` | scene without networks and leaks, to isolate the effect of the tropisms |
 | `--output` | where to write; default `sandbox_v2[_fsa][_hydro]/` next to the script |
 
 ### Step by step, per archetype
@@ -40,6 +44,33 @@ python3 code_val/sandbox/sandbox_v2.py
 
 Note that this script uses the **axis-aligned** street prototype in
 [`obstacles/`](../obstacles/README.md), not `network/`.
+
+## `sandbox_v3.py` — one scene of the v3 generator
+
+Same scene model as the dataset, built by hand so that one thing varies at a time: one soil
+archetype (a single patch), one street, the age and the seeds of your choice.
+
+```bash
+python3 code_val/sandbox/sandbox_v3.py --tree my_Quercus_robur_T4.xml --runs 3 --no-street
+```
+
+| Flag | Effect |
+|---|---|
+| `--tree XML ...` | **required**: CPlantBox parameter files |
+| `--archetype N ...` | soil archetype identifiers, 1 = `loose_uniform` ... 10 = `sand_over_clay` (default 1) |
+| `--no-street` | no network and no leak |
+| `--street-class` | density class of the street, ignored with `--no-street` (default `dense`) |
+| `--no-f-sa`, `--no-hydro` | do not wire `f_sa` / the hydrotropism (the dataset wires both) |
+| `--npz` | also write the files of the dataset into `npz/` (`.npz`, `.json`, `site_request`, no `.vti`) |
+| `--runs`, `--age`, `--seed` | trees per scene (50), age in years (120), base seed (7) |
+| `--output` | output folder, default `sandbox_v3[_nofsa][_nohydro][_nostreet]/` next to the script |
+
+Per XML file it writes `<output>/<xml stem>/`: the first three `.vtp`, one `.vti` (the fields and the
+occupancy), `_roots.csv` (one row per structural root of at least 100 cm) and `_profile.csv`
+(structural length per subtype, depth band and radius band). The pit and the street are seeded
+without the archetype and without the tree, so every soil and every XML meets the same pit and
+the same pipes. A street of the requested class is searched from the seed upwards, over at most
+200 seeds.
 
 ## `sandbox_v1.py` — the frozen reference
 

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+
 DAYS_PER_YEAR = 365
 AGE_RANGE_YEARS = (5.0, 120.0)  # au-dela de 60 ans le XML est extrapole
 
@@ -18,11 +19,6 @@ HEIGHT_BASE_M = 1.3
 HEIGHT_INCREMENT_M = 25.0
 HEIGHT_RATE_PER_CM = 0.035
 CROWN_DEPTH_FRACTION = 0.6
-
-PICEA_ABIES = "picea_abies"
-SPECIES_SLOTS = (PICEA_ABIES, "quercus_robur", "aesculus_hippocastanum")
-ARCHITECTURE_SLOTS = ("surface", "taproot", "heart")
-ARCHITECTURE_OF_SPECIES = {PICEA_ABIES: "surface", "quercus_robur": "taproot"}
 
 
 @dataclass(frozen=True)
