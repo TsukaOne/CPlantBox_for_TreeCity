@@ -78,8 +78,11 @@ exceed 2.0 g/cm³**, where Rosetta stops being valid.
 
 ## Known limits
 
+- **The native soil under a profile is undisturbed (IN)** — SoilGrids gives 1.56–1.58 g/cm³ at
+  depth in Brussels — except in P05, P07 and P08, where compaction is the subject. Decided at
+  the sandbox checkpoint: a FR subsoil (1.5–3.7 MPa) stopped the roots of most profiles.
 - P03 has a groundwater table only; the perched water table over a compacted layer is not a
-  separate variant (its lower layer can be IN to VR).
+  separate variant.
 - P07 alternates fine / coarse / fine over the natural soil in a fixed order.
 - Compaction classes are drawn uniformly among those a recipe allows; profile and city weights
   are uniform too (open decision).

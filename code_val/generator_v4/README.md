@@ -63,6 +63,24 @@ without it, `--scenes 2000` to `dataset_v4/`. Resumable, refuses a design change
 | Regenerated block identical to the first | 16/16 |
 | Rootable voxels whose mean-state suction lies outside Whalley's −20…−300 kPa | 35 % (scene 1) |
 
+## Pilot against v3 (`compare_pilot_v4.py`, scenes 1–128)
+
+| | |
+|---|---|
+| Time | 8 min 38 on 23 workers; 77 s per scene median, 199 s max; about 2 h for 2000 scenes |
+| Paired with v3 | 128/128; no stillborn tree |
+| Root mass v4 / v3 | median ×1.49 [1.19–2.28], higher in 112/128 pairs (sign test p < 0.001) |
+| Occupancy-weighted depth / radius | +5 cm / +25 cm |
+| Overlap of the v3 and v4 targets | 0.69 |
+| Most favourable profiles | P04 ×2.36, P01 ×2.19, P09 ×2.13, P12 ×1.81 |
+| Least favourable | P07 ×1.20, P02 ×1.26, P03 ×1.29 (not significant), P05 ×1.43, P08 ×1.49 |
+| Confined pit | roots dive (+15 cm) rather than spread (+12 cm of radius, +34 without walls) |
+
+Part of the rise is the stop threshold (3.0 instead of 2.5 MPa: +20 to +55 % in the sandbox);
+the rest is v4 soils being on average less compacted than the v3 archetypes. The pit variant
+(×1.52 compacted, ×1.46 loose) and the drought module (×1.47 against ×1.49) barely matter: an
+IN–FR pit stays penetrable at 3.0 MPa, and in the mean state a drought only shortens the summer.
+
 ## Known limits
 
 - Whalley's coefficients are second-hand; a third of the mean-state voxels extrapolate it.
@@ -72,3 +90,8 @@ without it, `--scenes 2000` to `dataset_v4/`. Resumable, refuses a design change
   the host once a v4 dataset exists.
 - A wall that finds no room is dropped (`skipped` in the descriptor), so a scene can draw a wall
   kind and have no panel.
+- **A wall is a strong preference, not a guarantee** (accepted). CPlantBox confines by rejection
+  and gives up after about twenty tries; in the pilot, 4 confined pits out of 22 had a root
+  node 0.3 to 10.5 cm inside their wall, which surrounds the densest roots. Every intrusion is
+  recorded in the scene's diagnostics.
+- The full dataset v4 is not generated yet: it waits for Whalley's coefficients to be checked.

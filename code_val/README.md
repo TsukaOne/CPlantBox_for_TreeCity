@@ -4,22 +4,45 @@ Grows *Picea abies* root systems in CPlantBox inside a synthetic urban scene —
 planting pit, buried utility networks, joint leaks — and turns them into voxel grids a 3D U-Net
 can be trained on: **where a structural root is likely to be**, given the soil and the street.
 
-Two generators live here side by side. **Do not refactor v1 while working on v3**: v1 is frozen
-on purpose and must keep running. v2 is no longer a generator but a dataset on disk: `generator/`
-has evolved into v3 and does not reproduce it (see the v2 column).
+Three generators live here side by side. **Do not refactor v1 while working on v3 or v4**: v1 is
+frozen on purpose and must keep running. v2 is no longer a generator but a dataset on disk:
+`generator/` has evolved into v3 and does not reproduce it (see the v2 column). v4 reuses the v3
+scenes and machinery and replaces the soil; the v3 output stays bit for bit what it was
+(`compare_scenes.py`).
 
-| | **v1** | **v2** (on disk, 2026-09-22) | **v3** |
-|---|---|---|---|
-| Entry point | `build_dataset.py` | — (`build_dataset_v2_hybrid.py` derives from it) | `build_dataset_v3.py` |
-| Scene code | `dataset/` + `obstacles/` | `generator/` at `1b52cfb` | `generator/` + `network/` + `hybrid/` |
-| Soil water | volumetric θ | volumetric θ → ψ → sigmoid stress | share of the available water capacity |
-| Soil | one profile per scene | mosaic of 2–4 archetypes | mosaic of 1–4 archetypes |
-| Soil hooks | `f_se` | `f_se` | `f_se` and `f_sa` |
-| Obstacles | 4 hand-made families, axis-aligned pipes | 0–10 real networks, any bearing | same as v2 |
-| Design | 360 configs × 50 runs | 2 000 scenes × 20 runs | 2 000 scenes × 20 runs |
-| Target | centreline occupancy | radius **and** centreline, plus volume | same, plus *major* / *minor* diameter classes |
-| Input channels | 9 | 15 (17 in `dataset_v2_hybrid/`) | 19 = 15 baseline + 4 hybrid |
-| Metadata | descriptor | descriptor | descriptor + a `site_request` per scene |
+| | **v1** | **v2** (on disk, 2026-09-22) | **v3** | **v4** (pilot, 2026-10-21) |
+|---|---|---|---|---|
+| Entry point | `build_dataset.py` | — (`build_dataset_v2_hybrid.py` derives from it) | `build_dataset_v3.py` | `build_dataset_v4.py` |
+| Scene code | `dataset/` + `obstacles/` | `generator/` at `1b52cfb` | `generator/` + `network/` + `hybrid/` | `generator_v4/` + `soil_library/` + `soil_v4/`, on the v3 scenes |
+| Soil water | volumetric θ | volumetric θ → ψ → sigmoid stress | share of the available water capacity | drawn from the city's climate, mean of four seasons, independent of texture |
+| Soil | one profile per scene | mosaic of 2–4 archetypes | mosaic of 1–4 archetypes | mosaic of 1–4 of 12 profile types (12 materials, WRB compaction), 25 % Sobol fill scenes |
+| Penetration resistance | typed in | typed in | typed in | derived (Rosetta → ψ → Whalley 2007), stop at 3.0 MPa |
+| Soil hooks | `f_se` | `f_se` | `f_se` and `f_sa` | `f_se` (mechanics × water × air × rootable) and `f_sa` |
+| Obstacles | 4 hand-made families, axis-aligned pipes | 0–10 real networks, any bearing | same as v2 | same as v2, plus barriers and walls |
+| Design | 360 configs × 50 runs | 2 000 scenes × 20 runs | 2 000 scenes × 20 runs | blocks of 16, scene k paired with v3 scene k |
+| Target | centreline occupancy | radius **and** centreline, plus volume | same, plus *major* / *minor* diameter classes | same as v3 |
+| Input channels | 9 | 15 (17 in `dataset_v2_hybrid/`) | 19 = 15 baseline + 4 hybrid | 26 = the 19 of v3 + 7 |
+| Metadata | descriptor | descriptor | descriptor + a `site_request` per scene | same, contract `site_request/v3` |
+
+---
+
+## What v4 changes
+
+Read the code in this order; each package README carries its measured numbers and limits.
+
+1. **`soil_library/`** — what an urban soil can be made of: 12 materials, 12 profile types,
+   WRB compaction classes, 3 cities, and where every value comes from (13 references, 62
+   estimates that name their replacement data).
+2. **`soil_v4/`** — the physics: a profile on the depth cells, one Rosetta call, the water
+   states, Whalley's resistance, air, `f_se` / `f_sa`; then the 3-D soil of a scene (mosaic,
+   pit, backfills, leaks).
+3. **`network/wall_*.py`** — foundations, narrow strips and confined pits as CPlantBox walls.
+4. **`tree/seasons.py`** — growth with the grids swapped every season (measured, not used: the
+   season cycle stays within the noise of the mean state).
+5. **`sandbox/sandbox_v4_*.py`** — profiles, seasons and walls on a frozen v3 scene.
+6. **`generator_v4/`** — the dataset: v3 scene k with a v4 soil and walls, schema v5 tensors,
+   contract `site_request_v3.schema.json`.
+7. **`compare_pilot_v4.py`** — the v4 pilot against v3, pair by pair.
 
 ---
 
@@ -72,12 +95,16 @@ The v1 path is the same skeleton with fewer steps: `dataset/configuration.py` �
 |---|---|---|
 | `dataset/` | v1 example builder: configurations, Monte Carlo, 9 channels, writer | [dataset/README.md](dataset/README.md) |
 | `generator/` | v3 scene builder: scene draw, environment, voxelisation by diameter class, 19 channels, site request, writer | [generator/README.md](generator/README.md) |
+| `generator_v4/` | v4 scene builder on the v3 scenes: design blocks, Sobol fill scenes, environment, 26 channels, site request v3 | [generator_v4/README.md](generator_v4/README.md) |
 | `hybrid/` | what the hybrid model adds: 4 channels, `prior_v2`, mask zones, and the measures that decide phases B and C | [hybrid/README.md](hybrid/README.md) |
 | `network/` | v2/v3 buried networks: free-orientation pipes, trenches, coverage, walls, leaks | [network/README.md](network/README.md) |
 | `obstacles/` | v1 obstacle families, **and** the axis-aligned street prototype `network/` replaced | [obstacles/README.md](obstacles/README.md) |
 | `sandbox/` | throwaway experiments that measure one mechanism at a time | [sandbox/README.md](sandbox/README.md) |
 | `secondary_growth/` | post-hoc root thickening, the radius CPlantBox will not give you | [secondary_growth/README.md](secondary_growth/README.md) |
 | `soil/` | archetypes, mosaic, noise, pit, fills, leaks, Rosetta, `f_se` | [soil/README.md](soil/README.md) |
+| `soil_library/` | v4 urban soil catalogue: materials, profile types, compaction, cities, sources | [soil_library/README.md](soil_library/README.md) |
+| `soil_v4/` | v4 soil physics and fields: Rosetta, water states, Whalley resistance, aeration, pit, backfills | [soil_v4/README.md](soil_v4/README.md) |
+| `visualisation/` | PNG and `.vti` views of the v4 soils and of the pilot pairs | — |
 | `tree/` | tree attributes, and the CPlantBox growth call itself | [tree/README.md](tree/README.md) |
 | `parameters/` | `Picea_Abies_combined_v6.xml`, 7 root subtypes | — |
 
@@ -89,9 +116,12 @@ Shared, at the root:
 | `paraview.py` | writes any dict of grids as one binary `.vti`, and reads it back |
 | `versions.py` | the current git commit, stamped into every file written |
 | `site_request.schema.json` | the inference contract (`site_request/v2`), with the training ranges; `site_request.example.json` |
+| `site_request_v3.schema.json` | the v4 contract (`site_request/v3`): city, soil layers or barriers, walls, water modules; no water or resistance as input |
 | `apply_secondary_growth.py` | CLI: re-radius an existing `.vtp` |
 | `visualise_example.py` | CLI: one self-contained HTML page per v1 example |
-| `build_dataset.py`, `build_dataset_v3.py` | CLI, parallelisation, resumability |
+| `build_dataset.py`, `build_dataset_v3.py`, `build_dataset_v4.py` | CLI, parallelisation, resumability |
+| `compare_scenes.py` | CLI: two folders of scenes, array by array — the proof that a refactor left v3 unchanged |
+| `compare_pilot_v4.py` | CLI: a v4 pilot against v3, pair by pair and per profile, city and module |
 | `build_dataset_v2_hybrid.py` | CLI: dataset v2 → 17 hybrid channels + `prior_v2`, no simulation |
 | `measure_hybrid_readiness.py` | CLI: Dice of the priors and target mass under the masks, on any hybrid-format folder |
 | `measure_training_ranges.py` | CLI: validates every site request of a dataset and rewrites the contract's training ranges |
@@ -122,6 +152,8 @@ python3 code_val/build_dataset_v3.py --pilot           # 20 scenes spread over t
 python3 code_val/build_dataset_v3.py                   # the 2000 scenes, about 1 h 15 on 23 workers, 20 GB
 python3 code_val/build_dataset_v3.py --scenes 50 --runs 5 --vtp
 python3 code_val/build_dataset.py --pilot              # v1, 5 configurations
+python3 code_val/build_dataset_v4.py --pilot           # v4, scenes 1-128 paired with v3, about 9 min
+python3 code_val/compare_pilot_v4.py code_val/dataset_v3 code_val/pilot_v4
 python3 code_val/sandbox/sandbox_v2.py --hydro         # one scene per archetype, to look at
 ```
 
@@ -179,6 +211,7 @@ recomputed over any subset of runs without simulating again.
 - **The `prior` channel is a strong radial prior** — exactly what a network copies while ignoring
   the soil. Train once with it and once without.
 - **No surface pavement since v2**: what reaches the roots is the excavation, not the slab above it.
-- **Penetration resistance comes from the archetypes**, not from texture and density: the
+- **In v3, penetration resistance comes from the archetypes**, not from texture and density: the
   pedotransfer the contract relies on when `penetrometer_mpa` is null is not in the generator.
+  v4 derives it (Whalley 2007, coefficients still to check against the paper).
 - Anything narrower than that is documented in the package README that owns it.

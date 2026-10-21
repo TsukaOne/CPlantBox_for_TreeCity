@@ -1,0 +1,441 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://treecity/root_voxel/site_request/v2",
+  "title": "Site request — object received by root_voxel inference",
+  "description": "Describes a single site around a single tree, as configured by the user in the app. This is the only input to inference: the channel builder derives 3D channels and the FiLM vector from it, exactly as the generator does during training. The network never reads this file. Every training scene of dataset v3 is also written in this format, under site_request/.\n\nCOORDINATE SYSTEM — all coordinates in cm are expressed in the prediction box frame, whose axes are those of the output grid (depth, row, column): origin at tree collar, column axis aligned with frame.azimuth_deg, row axis 90° to its left seen from above, z axis vertical upward (thus depth is negative). The box extent is fixed by root_voxel/config.py and not repeated here; geometry outside the box is clipped by the channel builder.\n\nTRAINING RANGES — each field carries, when it exists, the range actually covered by the training dataset (x-training-range), rewritten from dataset v3 by code_val/measure_training_ranges.py. Outside this range the prediction is extrapolation: the app should warn, not refuse.",
+  "type": "object",
+  "required": ["schema_version", "tree", "pit", "soil", "street"],
+  "additionalProperties": false,
+
+  "properties": {
+    "schema_version": { "const": "site_request/v2" },
+
+    "request_id": {
+      "type": "string",
+      "description": "Request identifier, copied to the prediction for tracing."
+    },
+
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of submission."
+    },
+
+    "frame": {
+      "type": "object",
+      "description": "Where the prediction box is positioned in the world and how it is oriented. Used to reproject the output onto the map; the channel builder only reads azimuth_deg from it. Always provided by the app; absent from synthetic training scenes, which have no place in the world.",
+      "required": ["crs", "collar_easting_m", "collar_northing_m", "azimuth_deg"],
+      "additionalProperties": false,
+      "properties": {
+        "crs": {
+          "type": "string",
+          "description": "Projected coordinate system of collar_* fields, in EPSG notation.",
+          "examples": ["EPSG:31370"]
+        },
+        "collar_easting_m": {
+          "type": "number",
+          "description": "Easting of tree collar — the origin of the box frame."
+        },
+        "collar_northing_m": {
+          "type": "number",
+          "description": "Northing of tree collar."
+        },
+        "collar_elevation_m": {
+          "type": ["number", "null"],
+          "default": null,
+          "description": "Elevation of natural ground at collar. Informational: the soil surface is z = 0 by definition."
+        },
+        "azimuth_deg": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 360,
+          "description": "Azimuth of the box's +column axis, in degrees clockwise from geographic north. Inferred by the app from the nearest street axis (OSM): at street.bearing_deg = 0 the corridors run along the column axis. This value enables reprojection of the output; the orientation of networks WITHIN the box is carried by street.bearing_deg.",
+          "x-source": "osm"
+        }
+      }
+    },
+
+    "tree": {
+      "type": "object",
+      "description": "Non-spatial tree attributes. Feed the FiLM vector, never a channel.",
+      "required": ["species", "age_years", "dbh_cm", "height_m"],
+      "additionalProperties": false,
+      "properties": {
+        "species": {
+          "enum": ["picea_abies", "quercus_robur", "aesculus_hippocastanum"],
+          "description": "Species. WARNING: dataset v3 contains only picea_abies; the other two values are accepted by the schema but remain out-of-distribution until other species are simulated.",
+          "x-source": "cityjson"
+        },
+        "architecture": {
+          "enum": ["surface", "taproot", "heart"],
+          "description": "Root architecture type. If omitted, derived from species by the channel builder's lookup table. Set explicitly only to override the species default.",
+          "x-source": "form"
+        },
+        "age_years": {
+          "type": "number",
+          "minimum": 0,
+          "x-training-range": [5.053, 119.983],
+          "description": "Estimated age. The most influential FiLM component: it drives the amplitude of predicted root mass.",
+          "x-source": "cityjson"
+        },
+        "dbh_cm": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "x-training-range": [4.542, 79.729],
+          "description": "Diameter at breast height (1.30 m). Sets the prior radius of the root cloud.",
+          "x-source": "cityjson"
+        },
+        "height_m": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "x-training-range": [4.974, 24.766],
+          "x-source": "cityjson"
+        },
+        "crown_depth_m": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "default": null,
+          "x-training-range": [2.984, 14.86],
+          "description": "Vertical extent of the crown. If absent, the channel builder assumes 0.6 × height_m.",
+          "x-source": "cityjson"
+        }
+      }
+    },
+
+    "pit": {
+      "type": "object",
+      "description": "Planting pit: the volume of added substrate around the collar.",
+      "required": ["radius_cm", "depth_cm", "substrate"],
+      "additionalProperties": false,
+      "properties": {
+        "radius_cm": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 60,
+          "x-training-range": [50.067, 149.979],
+          "x-source": "form"
+        },
+        "depth_cm": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 80,
+          "x-training-range": [60.019, 99.992],
+          "x-source": "form"
+        },
+        "substrate": {
+          "$ref": "#/$defs/soil_layer",
+          "description": "Pit substrate is homogeneous: in every training scene, its topsoil and subsoil horizons are identical. A single layer is requested here."
+        }
+      }
+    },
+
+    "soil": {
+      "type": "object",
+      "description": "In-situ soil, outside the pit. A default profile and up to three patches, each seeded at a point of the box, share it as in the generator's mosaic: every point takes a softmax blend of the profiles, weighted by its distance to their seeds. Training scenes carry 1 to 4 profiles.",
+      "required": ["default_profile"],
+      "additionalProperties": false,
+      "properties": {
+        "default_profile": {
+          "$ref": "#/$defs/soil_profile",
+          "description": "The soil at the tree: the whole box when there is no patch. The only mandatory soil block."
+        },
+        "default_center_row_cm": {
+          "type": "number",
+          "default": 0.0,
+          "x-training-range": [-196.258, 198.174],
+          "description": "Seed of the default profile on the row axis, used only when patches are present. The generator draws it within 200 cm of the collar; the default puts it at the collar."
+        },
+        "default_center_column_cm": {
+          "type": "number",
+          "default": 0.0,
+          "x-training-range": [-195.973, 198.32],
+          "description": "Seed of the default profile on the column axis."
+        },
+        "patches": {
+          "type": "array",
+          "maxItems": 3,
+          "default": [],
+          "description": "Distinct soil patches, each centered on a point in the box. Empty list = laterally uniform soil, which about one training scene in four has.",
+          "items": {
+            "type": "object",
+            "required": ["center_row_cm", "center_column_cm", "profile"],
+            "additionalProperties": false,
+            "properties": {
+              "center_row_cm": {
+                "type": "number",
+                "description": "Center of the patch on the row axis of the box frame."
+              },
+              "center_column_cm": {
+                "type": "number",
+                "description": "Center of the patch on the column axis."
+              },
+              "profile": { "$ref": "#/$defs/soil_profile" }
+            }
+          }
+        },
+        "blending": {
+          "type": "object",
+          "description": "How patches blend into each other. Default values = those of the generator; modify only to reproduce a specific scene.",
+          "additionalProperties": false,
+          "properties": {
+            "transition_length_cm": {
+              "type": "number",
+              "minimum": 0,
+              "default": 65,
+              "x-training-range": [20.0, 89.978],
+              "description": "Width of the fade zone between two patches. The generator uses 20 cm, a vertical excavation joint, in one scene out of four, and draws it uniformly in [40, 90] otherwise; the default is the centre of that majority regime."
+            },
+            "boundary_wander_cm": {
+              "type": "number",
+              "minimum": 0,
+              "default": 120,
+              "description": "Amplitude of the boundary undulation between patches."
+            },
+            "boundary_wander_length_cm": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "default": 150,
+              "description": "Wavelength of this undulation."
+            },
+            "boundary_seed": {
+              "type": ["integer", "null"],
+              "default": null,
+              "description": "Seed for the undulation. If absent, derived from request_id so that the same request always yields the same boundary."
+            }
+          }
+        }
+      }
+    },
+
+    "street": {
+      "type": "object",
+      "description": "The street and what it carries underground.",
+      "required": ["bearing_deg", "curb_offset_cm"],
+      "additionalProperties": false,
+      "properties": {
+        "bearing_deg": {
+          "type": "number",
+          "minimum": -40,
+          "maximum": 40,
+          "x-training-range": [-40.0, 39.979],
+          "description": "Angular offset between the network corridor axis and the box +column axis, positive toward +row. Do NOT confuse with frame.azimuth_deg, which is an absolute azimuth: the dataset covers only ±40°, so the app must orient the box to the street via frame.azimuth_deg and leave only the residual offset here.",
+          "x-source": "osm"
+        },
+        "curb_offset_cm": {
+          "type": "number",
+          "x-training-range": [150.046, 279.919],
+          "description": "Distance from collar to curb edge, measured along the row axis: corridors are offset from the curb, the sewer on the positive side.",
+          "x-source": "osm"
+        },
+        "utilities": {
+          "type": "array",
+          "default": [],
+          "description": "Buried conduits. Beyond 10, the channel builder saturates the utility_count FiLM component.",
+          "items": { "$ref": "#/$defs/utility" }
+        }
+      }
+    },
+
+    "leaks": {
+      "type": ["array", "null"],
+      "default": null,
+      "description": "Moisture plumes. If absent (null), the channel builder places them automatically at joints of conduits with leakage_status of minor or major — this is the normal mode. An explicit list, even if empty, overrides this automatic placement. Training scenes always carry the explicit list the generator drew.",
+      "items": { "$ref": "#/$defs/leak" }
+    },
+
+    "provenance": {
+      "type": "object",
+      "description": "Source of each value, indexed by its path in this document. Used to display in the report what was measured and what was assumed. Does not influence any channel.",
+      "additionalProperties": {
+        "enum": ["cityjson", "osm", "form", "default", "pedotransfer", "soil_map", "generator"]
+      }
+    }
+  },
+
+  "$defs": {
+
+    "soil_layer": {
+      "type": "object",
+      "description": "The five measurable quantities of a soil horizon. Everything else — van Genuchten parameters, matric potential, Bengough factor — is derived by the channel builder. The user never enters a channel.",
+      "required": ["sand_fraction", "clay_fraction", "moisture_m3_m3"],
+      "additionalProperties": false,
+      "properties": {
+        "sand_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "x-training-range": [0.127, 0.908],
+          "description": "Mass fraction of sand. Silt fraction equals 1 − sand − clay and is therefore not entered.",
+          "x-source": "form"
+        },
+        "clay_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "x-training-range": [0.042, 0.575],
+          "x-source": "form"
+        },
+        "bulk_density_g_cm3": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1.4,
+          "x-training-range": [1.062, 2.2],
+          "description": "Dry bulk density. The default of 1.4 corresponds to compacted urban soil.",
+          "x-source": "form"
+        },
+        "moisture_m3_m3": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "x-training-range": [0.058, 0.464],
+          "description": "Volumetric water content at the time of analysis. Without a measurement, use field capacity derived from texture. The channel builder turns it into a share of the available water capacity with this horizon's own retention curve (Rosetta, wilting point at −15 000 cm, field capacity at −100 cm): that share, not theta, is what drives growth, so the same theta means a wet sand and a dry clay.",
+          "x-source": "form"
+        },
+        "penetrometer_mpa": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "default": null,
+          "x-training-range": [0.683, 5.0],
+          "description": "Penetration resistance. It drives both the elongation of every apex (Bengough) and the insertion angle of laterals (f_sa). The only contract quantity that field surveys rarely provide: when left null, it MUST be reconstructed via pedotransfer (texture, bulk density) → Q, with provenance set to 'pedotransfer'. Note that the dataset reaches 5 MPa: any clipping upstream of Bengough must apply to the moisture multiplier, not Q.",
+          "x-source": "form"
+        }
+      }
+    },
+
+    "soil_profile": {
+      "type": "object",
+      "description": "Two superposed horizons and the depth separating them.",
+      "required": ["topsoil", "subsoil"],
+      "additionalProperties": false,
+      "properties": {
+        "topsoil_depth_cm": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 40,
+          "x-training-range": [20.045, 59.98],
+          "description": "Depth of transition from topsoil horizon to subsoil horizon."
+        },
+        "topsoil": { "$ref": "#/$defs/soil_layer" },
+        "subsoil": {
+          "$ref": "#/$defs/soil_layer",
+          "description": "Deep horizon. For homogeneous soil, copy topsoil — this is what the generator does for 7 of its 10 archetypes."
+        }
+      }
+    },
+
+    "utility": {
+      "type": "object",
+      "description": "A conduit and its trench. The conduit lumen blocks roots; surround and backfill channel them.",
+      "required": ["name", "role", "nodes_cm", "radius_cm", "trench_half_width_cm"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Network name. Free-form, but values known to the generator drive material defaults.",
+          "examples": ["gas", "water", "sewer", "electricity", "telecom", "heating", "lighting", "water_connection", "sewer_connection", "pit_service"]
+        },
+        "role": {
+          "enum": ["corridor", "connection", "pit_service"],
+          "description": "corridor: main conduit traversing the box. connection: branch connected to a corridor (which must then be named in parent). pit_service: service leading to the pit."
+        },
+        "parent": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the corridor this conduit branches from. Required if role is connection, empty otherwise."
+        },
+        "nodes_cm": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 3,
+          "description": "Polyline of the conduit axis in box coordinates. The dataset never has more than 3 nodes. Nodes can extend outside the box: the channel builder clips them.",
+          "items": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "description": "[row_cm, column_cm, z_cm] — z negative below surface.",
+            "items": { "type": "number" }
+          }
+        },
+        "radius_cm": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "x-training-range": [3.008, 39.99],
+          "description": "INNER radius of the conduit, not diameter."
+        },
+        "trench_half_width_cm": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "x-training-range": [33.008, 69.99],
+          "description": "Half-width of the trench opened to lay the conduit. Must be at least radius_cm."
+        },
+        "bedding_depth_cm": {
+          "type": "number",
+          "minimum": 0,
+          "default": 12,
+          "x-training-range": [10.0, 15.0],
+          "description": "Thickness of the bedding layer under the conduit."
+        },
+        "surround_cover_cm": {
+          "type": "number",
+          "minimum": 0,
+          "default": 22,
+          "x-training-range": [15.002, 30.0],
+          "description": "Thickness of surround above the conduit. Beyond this begins the trench backfill."
+        },
+        "joint_spacing_cm": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0,
+          "description": "Spacing of joints where a leak may occur. Zero when leakage_status is none; the generator uses only 250 and 600 otherwise.",
+          "examples": [0, 250, 600]
+        },
+        "leakage_status": {
+          "enum": ["none", "minor", "major"],
+          "default": "none",
+          "description": "Declared leak on this network. Rarely known in operation: none is the production default. Feeds automatic plume placement when leaks is absent."
+        }
+      }
+    },
+
+    "leak": {
+      "type": "object",
+      "description": "Moisture plume from a joint. Attracts roots instead of repelling them.",
+      "required": ["name", "origin_cm", "along_unit", "available_water_fraction"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "examples": ["sewer_leak", "water_leak", "water_connection_leak", "sewer_connection_leak"]
+        },
+        "origin_cm": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "number" },
+          "description": "[row_cm, column_cm, z_cm] of the leaking joint."
+        },
+        "along_unit": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "number", "minimum": -1, "maximum": 1 },
+          "description": "[row, column] — unit horizontal vector along the conduit axis, which extends the plume in that direction."
+        },
+        "available_water_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "x-training-range": [0.75, 1.0],
+          "description": "Share of the available water capacity imposed at the plume core: 1.0 (field capacity) for a major leak, 0.75 for a minor one. Written as a share rather than a theta because the plume crosses soils of different textures."
+        },
+        "reach_scale": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1.0,
+          "x-training-range": [0.6, 1.0],
+          "description": "Plume extension factor. 1.0 for a major leak, 0.6 for a minor one."
+        }
+      }
+    }
+  }
+}

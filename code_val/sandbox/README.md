@@ -123,6 +123,9 @@ Each configuration writes a `.vti` (occupancy, f_se, resistance, rootable, walls
 
 ### What was measured
 
+E1 ran before the native subsoils of P03, P04, P06, P09–P12 were set to IN (only P01 was);
+those profiles are a little more favourable now than in these numbers.
+
 - **No tree is stillborn, no root enters a pipe or a wall** in any of the 72 + 50 + 12 ensembles.
 - **Profiles order as expected.** Root mass (mean occupancy) at 2.5 MPa: engineered substrates
   P11/P12 0.0034–0.0040, deep natural soil P01 0.0034–0.0038, compacted P05 0.0025, thin soil
