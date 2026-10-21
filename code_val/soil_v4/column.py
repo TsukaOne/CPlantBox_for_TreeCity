@@ -12,7 +12,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from grid import VoxelGrid
-from soil_library.draw import SOIL, DrawnProfile
+from soil_library.draw import SOIL, DrawnLayer, DrawnProfile
 
 STONE_PARTICLE_DENSITY_G_CM3 = 2.65
 # Estimate: published penetration resistance pedotransfers err by 0.9 to 1.8 MPa (Vaz et al.).
@@ -33,6 +33,12 @@ class StaticSoil:
     def whole_soil_density_g_cm3(self) -> np.ndarray:
         return (self.fine_earth_density_g_cm3 * (1.0 - self.coarse_fraction)
                 + STONE_PARTICLE_DENSITY_G_CM3 * self.coarse_fraction)
+
+
+def convert_layer_to_soil(layer: DrawnLayer) -> StaticSoil:
+    """One engineered layer as scalars, written whole into a planting pit or a backfill."""
+    return StaticSoil(layer.sand_fraction, layer.clay_fraction, layer.organic_carbon_percent,
+                      layer.coarse_fraction, layer.fine_earth_density_g_cm3, 0.0, 1.0)
 
 
 def measure_layer_bottoms_cm(profile: DrawnProfile, grid: VoxelGrid) -> np.ndarray:

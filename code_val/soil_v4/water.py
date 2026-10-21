@@ -21,6 +21,7 @@ YEAR_PROBABILITIES = (0.25, 0.5, 0.25)
 DROUGHT_PROBABILITY = 0.15
 DROUGHT_SUMMER_FACTOR = 0.5
 RUNOFF_PROBABILITY = 0.15
+RUNOFF_PIT_INCREMENT = 0.25
 SEALED_SURFACE_FACTOR = 0.75
 
 
@@ -53,6 +54,17 @@ def list_state_fractions(regime: WaterRegime) -> dict:
 def build_available_water(state_fraction: float, sealed_share) -> np.ndarray:
     return np.clip(state_fraction * (1.0 - (1.0 - SEALED_SURFACE_FACTOR) * np.asarray(sealed_share)),
                    0.0, 1.0)
+
+
+def apply_runoff(available_water: np.ndarray, pit_mask: np.ndarray) -> np.ndarray:
+    return np.where(pit_mask, np.minimum(available_water + RUNOFF_PIT_INCREMENT, 1.0), available_water)
+
+
+def apply_leaks(available_water: np.ndarray, sources: tuple) -> np.ndarray:
+    """A leak only adds water: the resistance and the air follow from it in compute_soil_state."""
+    for ramp, target_fraction in sources:
+        available_water = available_water + (target_fraction - available_water) * ramp
+    return available_water
 
 
 def build_saturated_fraction(water_table_depth_cm: Optional[float], grid: VoxelGrid) -> np.ndarray:
