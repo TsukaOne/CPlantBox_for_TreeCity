@@ -1,9 +1,9 @@
 """Compare a v4 pilot with dataset v3, scene by scene.
 
-    python3 code_val/compare_pilot_v4.py code_val/dataset_v3 code_val/pilot_v4
+    python3 code_val/compare_pilot_v4.py code_val/dataset_v3/my_Picea_abies code_val/pilot_v4/my_Picea_abies
 
-Scene k of v4 has the tree, pit, street, leaks and root seeds of v3 scene k; this is checked
-first. Each pair is then compared on its root target: mass ratio v4/v3, shift of the
+Scene k of v4 has the tree XML, tree, pit, street, leaks and root seeds of v3 scene k; this is
+checked first. Each pair is then compared on its root target: mass ratio v4/v3, shift of the
 occupancy-weighted depth and radius, share of the mass below 50 and 100 cm, and the overlap
 2 sum(a b) / (sum(a^2) + sum(b^2)). Pairs are grouped by profile, city, scene kind, pit variant,
 wall kind and water module; a sign test says whether the mass moves one way more than chance.
@@ -55,6 +55,8 @@ def compare_scene(identifier: int, v3_directory: Path, v4_directory: Path) -> di
     v3_configuration = v3_descriptor["configuration"]
     v4_configuration = v4_descriptor["configuration"]
     unpaired = [key for key in PAIRED_KEYS if v3_configuration[key] != v4_configuration[key]]
+    if v3_descriptor["versions"]["xml"] != v4_descriptor["versions"]["xml"]:
+        unpaired.append("xml")
     if unpaired:
         raise SystemExit(f"scene {identifier} is not paired with v3: {unpaired}")
 

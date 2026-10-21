@@ -1,6 +1,6 @@
 """E3: the three wall kinds on P01, P05 and P08 in Brussels.
 
-    python3 code_val/sandbox/sandbox_v4_walls.py
+    python3 code_val/sandbox/sandbox_v4_walls.py --tree my_Picea_abies.xml
 
 For every wall panel, the share of the root mass on its far side (away from the trunk, or outside
 the ring of a confined pit) is compared with the same region without any wall. No root node may
@@ -21,8 +21,8 @@ from network.coverage import measure_cell_axes_cm
 from network.street import build_frame
 from network.wall_layouts import (CONFINED_PIT, FOUNDATION, NARROW_STRIP, NO_WALL, WALL_KINDS,
                                   draw_wall_module)
-from sandbox_v4_scene import (GRID, OUTPUT_DIRECTORY, SEED, build_sandbox_soil, grow_and_measure,
-                              load_frozen_scene, write_fields)
+from sandbox_v4_scene import (GRID, SEED, build_sandbox_soil, build_tree_directory,
+                              grow_and_measure, load_frozen_scene, parse_tree, write_fields)
 from soil.growth_response import STOPPED_GROWTH_RESISTANCE_MPA
 from soil_library.cities import CITIES
 from soil_library.profiles import PROFILES
@@ -30,7 +30,7 @@ from soil_library.profiles import PROFILES
 TESTED_PROFILES = ("P01", "P05", "P08")
 CITY = "Brussels"
 TESTED_KINDS = (NO_WALL, FOUNDATION, NARROW_STRIP, CONFINED_PIT)
-EXPERIMENT_DIRECTORY = OUTPUT_DIRECTORY / "walls"
+EXPERIMENT = "walls"
 
 
 def build_far_side_mask(panel, bearing_deg: float) -> np.ndarray:
@@ -49,10 +49,11 @@ def build_far_side_mask(panel, bearing_deg: float) -> np.ndarray:
 
 
 def run_wall_kind(task: tuple) -> tuple:
-    profile_name, kind = task
+    profile_name, kind, tree_xml = task
     recipe = next(recipe for recipe in PROFILES if recipe.identifier == profile_name)
     city = next(city for city in CITIES if city.name == CITY)
-    configuration = load_frozen_scene()
+    configuration = load_frozen_scene(tree_xml)
+    directory = build_tree_directory(tree_xml) / EXPERIMENT
     walls = draw_wall_module(kind, configuration.street, configuration.pit_radius_cm,
                              configuration.pit_depth_cm, GRID,
                              np.random.default_rng([SEED, WALL_KINDS.index(kind)]))
@@ -60,9 +61,8 @@ def run_wall_kind(task: tuple) -> tuple:
                                        build_sandbox_soil(recipe, city, configuration), walls,
                                        STOPPED_GROWTH_RESISTANCE_MPA, GRID)
     name = f"{profile_name}_{kind}"
-    probability, measure = grow_and_measure(configuration, environment, grow_once,
-                                            EXPERIMENT_DIRECTORY / name)
-    write_fields(EXPERIMENT_DIRECTORY / f"{name}.vti", environment, probability)
+    probability, measure = grow_and_measure(configuration, environment, grow_once, directory / name)
+    write_fields(directory / f"{name}.vti", environment, probability)
     return profile_name, kind, walls, probability, measure
 
 
@@ -82,11 +82,12 @@ def report(results: list, bearing_deg: float) -> None:
 
 
 def main() -> None:
-    EXPERIMENT_DIRECTORY.mkdir(parents=True, exist_ok=True)
-    tasks = [(profile, kind) for profile in TESTED_PROFILES for kind in TESTED_KINDS]
+    tree_xml = parse_tree(__doc__)
+    (build_tree_directory(tree_xml) / EXPERIMENT).mkdir(parents=True, exist_ok=True)
+    tasks = [(profile, kind, tree_xml) for profile in TESTED_PROFILES for kind in TESTED_KINDS]
     with Pool(min(len(tasks), max(1, (os.cpu_count() or 2) - 1))) as pool:
         results = pool.map(run_wall_kind, tasks)
-    report(results, load_frozen_scene().street.bearing_deg)
+    report(results, load_frozen_scene(tree_xml).street.bearing_deg)
 
 
 if __name__ == "__main__":

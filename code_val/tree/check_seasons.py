@@ -1,11 +1,12 @@
 """Check the seasonal grower against grow_plant on the environment of a v3 scene.
 
-    python3 code_val/tree/check_seasons.py
+    python3 code_val/tree/check_seasons.py --tree my_Picea_abies.xml
 
 Four identical seasons, wired as four distinct grid objects, must give exactly the segments of
 grow_plant. Stopping growth (f_se = 0) in some seasons must then shorten the root system, and
 stopping all of them must leave nothing.
 """
+import argparse
 import sys
 import time
 from pathlib import Path
@@ -42,27 +43,28 @@ def measure_length_cm(segments: np.ndarray) -> float:
     return float(np.linalg.norm(segments[:, 3:] - segments[:, :3], axis=1).sum())
 
 
-def grow_reference(environment, seed: int, age_years: float) -> np.ndarray:
-    plant = grow_plant(environment.geometry, environment.elongation_grid, seed, age_years,
+def grow_reference(environment, tree: Path, seed: int, age_years: float) -> np.ndarray:
+    plant = grow_plant(environment.geometry, environment.elongation_grid, seed, age_years, tree,
                        angle_grid=environment.angle_grid, water_lookup=environment.water_lookup)
     return extract_root_system(plant).segments
 
 
-def grow_seasonal(environment, grids: SeasonalGrids, seed: int, age_years: float) -> np.ndarray:
-    plant = grow_plant_through_seasons(environment.geometry, grids, seed, age_years,
+def grow_seasonal(environment, grids: SeasonalGrids, tree: Path, seed: int,
+                  age_years: float) -> np.ndarray:
+    plant = grow_plant_through_seasons(environment.geometry, grids, seed, age_years, tree,
                                        environment.water_lookup, None)
     return extract_root_system(plant).segments
 
 
-def check_equivalence(environment) -> None:
+def check_equivalence(environment, tree: Path) -> None:
     identical = build_seasonal_grids(environment, ())
     matches, reference_seconds, seasonal_seconds = 0, 0.0, 0.0
     for seed in SEEDS:
         started = time.perf_counter()
-        reference = grow_reference(environment, seed, EQUIVALENCE_AGE_YEARS)
+        reference = grow_reference(environment, tree, seed, EQUIVALENCE_AGE_YEARS)
         reference_seconds += time.perf_counter() - started
         started = time.perf_counter()
-        seasonal = grow_seasonal(environment, identical, seed, EQUIVALENCE_AGE_YEARS)
+        seasonal = grow_seasonal(environment, identical, tree, seed, EQUIVALENCE_AGE_YEARS)
         seasonal_seconds += time.perf_counter() - started
         matches += reference.shape == seasonal.shape and np.array_equal(reference, seasonal)
     print(f"four identical seasons give the segments of grow_plant: {matches}/{len(SEEDS)} seeds")
@@ -70,19 +72,24 @@ def check_equivalence(environment) -> None:
           f" {reference_seconds / len(SEEDS):.2f} s, seasonal {seasonal_seconds / len(SEEDS):.2f} s")
 
 
-def report_stopped_seasons(environment) -> None:
+def report_stopped_seasons(environment, tree: Path) -> None:
     for age_years in AGES_YEARS:
-        reference = np.mean([measure_length_cm(grow_reference(environment, seed, age_years))
+        reference = np.mean([measure_length_cm(grow_reference(environment, tree, seed, age_years))
                              for seed in SEEDS])
         print(f"age {age_years:.0f} years, reference root length {reference:.0f} cm")
         for label, stopped in STOPPED_SEASONS.items():
             grids = build_seasonal_grids(environment, stopped)
-            ratios = np.array([measure_length_cm(grow_seasonal(environment, grids, seed, age_years))
+            ratios = np.array([measure_length_cm(grow_seasonal(environment, grids, tree, seed,
+                                                               age_years))
                                for seed in SEEDS]) / reference
             print(f"  {label}: {ratios.mean():.2f} of the reference (seed spread {ratios.std():.2f})")
 
 
 if __name__ == "__main__":
-    scene_environment = build_environment(draw_scene(SCENE, GRID), GRID)
-    check_equivalence(scene_environment)
-    report_stopped_seasons(scene_environment)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--tree", required=True, metavar="XML",
+                        help="CPlantBox XML file (parameters/ folder)")
+    tree_xml = Path(parser.parse_args().tree).name
+    scene_environment = build_environment(draw_scene(SCENE, GRID, tree_xml=tree_xml), GRID)
+    check_equivalence(scene_environment, Path(tree_xml))
+    report_stopped_seasons(scene_environment, Path(tree_xml))

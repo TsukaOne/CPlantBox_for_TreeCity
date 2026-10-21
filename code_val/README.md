@@ -5,9 +5,9 @@ planting pit, buried utility networks, joint leaks — and turns them into voxel
 can be trained on: **where a structural root is likely to be**, given the soil and the street.
 
 Three generators live here side by side. **Do not refactor v1 while working on v3 or v4**: v1 is
-frozen on purpose. Since the multi-tree change (one CPlantBox parameter file per run, `--tree`) it
-no longer runs as is: `dataset/example.py` calls `grow_root_system` without its new `tree` argument.
-v2 is no longer a generator but a dataset on disk: `generator/` has evolved into v3 and does not
+frozen on purpose and must keep running. It does not take `--tree`: it grows
+`Picea_Abies_combined_v6.xml`, the tree it was built with (`dataset/example.py`). v2 is no longer a
+generator but a dataset on disk: `generator/` has evolved into v3 and does not
 reproduce it (see the v2 column). v4 reuses the v3 scenes and machinery and replaces the soil; the
 v3 output stays bit for bit what it was (`compare_scenes.py`).
 
@@ -122,7 +122,7 @@ Shared, at the root:
 | `site_request_v3.schema.json` | the v4 contract (`site_request/v3`): city, soil layers or barriers, walls, water modules; no water or resistance as input |
 | `apply_secondary_growth.py` | CLI: re-radius an existing `.vtp` |
 | `visualise_example.py` | CLI: one self-contained HTML page per v1 example |
-| `build_dataset.py`, `build_dataset_v3.py`, `build_dataset_v4.py` | CLI, parallelisation, resumability; `build_dataset_v3.py` requires `--tree` |
+| `build_dataset.py`, `build_dataset_v3.py`, `build_dataset_v4.py` | CLI, parallelisation, resumability; `build_dataset_v3.py` and `build_dataset_v4.py` require `--tree` |
 | `compare_scenes.py` | CLI: two folders of scenes, array by array — the proof that a refactor left v3 unchanged |
 | `compare_pilot_v4.py` | CLI: a v4 pilot against v3, pair by pair and per profile, city and module |
 | `build_dataset_v2_hybrid.py` | CLI: dataset v2 → 17 hybrid channels + `prior_v2`, no simulation |
@@ -161,11 +161,11 @@ Then:
 python3 code_val/build_dataset_v3.py --tree my_Picea_abies.xml --pilot   # 20 scenes spread over the design
 python3 code_val/build_dataset_v3.py --tree my_Picea_abies.xml           # the 2000 scenes of one tree, about 1 h 15 on 23 workers, 20 GB
 python3 code_val/build_dataset_v3.py --tree my_Quercus_robur.xml my_Aesculus_hippocastanum.xml --scenes 50 --runs 5 --vtp
-python3 code_val/build_dataset_v4.py --pilot           # v4, scenes 1-128 paired with v3, about 9 min
-python3 code_val/compare_pilot_v4.py code_val/dataset_v3 code_val/pilot_v4
+python3 code_val/build_dataset_v4.py --tree my_Picea_abies.xml --pilot   # v4, scenes 1-128 paired with v3, about 9 min
+python3 code_val/compare_pilot_v4.py code_val/dataset_v3/my_Picea_abies code_val/pilot_v4/my_Picea_abies
 python3 code_val/sandbox/sandbox_v3.py --tree my_Quercus_robur_T4.xml --runs 3 --no-street
 python3 code_val/sandbox/sandbox_v2.py --tree my_Picea_abies.xml --hydro  # one scene per archetype, to look at
-python3 code_val/build_dataset.py --pilot              # v1, does not run since --tree (see above)
+python3 code_val/build_dataset.py --pilot              # v1, 5 configurations, Picea_Abies_combined_v6.xml
 ```
 
 The three analysis CLIs need only numpy, scipy and jsonschema, and run on the host:

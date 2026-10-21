@@ -4,8 +4,10 @@ The tree, pit size, networks, leaks and root seeds are those of v3 scene 1001: o
 walls and the water change from one configuration to the next. The profile stands alone (no
 mosaic), the pit is loose, its substrate and the backfills are drawn with the same seed for every
 configuration, and the year is normal: no drought, no runoff. Each configuration grows 20 root
-systems with the v3 secondary growth and radius voxelisation.
+systems with the v3 secondary growth and radius voxelisation. The tree is given with --tree, and
+each tree writes in its own folder output/sandbox_v4/<xml>/.
 """
+import argparse
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -19,14 +21,14 @@ from generator.scene import SceneConfiguration, draw_scene
 from generator_v4.environment import EnvironmentV4, find_pipe_and_wall_intrusions
 from grid import VoxelGrid
 from paraview import write_voxel_grids
-from sandbox_v2 import measure_occupancy_shape
-from secondary_growth.parameters import SecondaryGrowthParameters
+from root_metrics import measure_occupancy_shape
 from soil_library.cities import CITIES, City
 from soil_library.draw import draw_profile
 from soil_library.profiles import PROFILES, ProfileRecipe
 from soil_v4.mosaic import single_profile_mosaic
 from soil_v4.scene import SoilScene, draw_soil_scene
 from soil_v4.water import MEAN_STATE, WaterRegime
+from tree.species import secondary_growth_for
 
 SCENE = 1001
 GRID = VoxelGrid(34, 64, 64, 15.0, 9.0)
@@ -50,8 +52,19 @@ class SandboxMeasure:
     stillborn: bool
 
 
-def load_frozen_scene() -> SceneConfiguration:
-    return draw_scene(SCENE, GRID)
+def parse_tree(description: str) -> str:
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument("--tree", required=True, metavar="XML",
+                        help="CPlantBox XML file (parameters/ folder)")
+    return Path(parser.parse_args().tree).name
+
+
+def build_tree_directory(tree_xml: str) -> Path:
+    return OUTPUT_DIRECTORY / Path(tree_xml).stem
+
+
+def load_frozen_scene(tree_xml: str) -> SceneConfiguration:
+    return draw_scene(SCENE, GRID, tree_xml=tree_xml)
 
 
 def build_normal_year(city: City) -> WaterRegime:
@@ -70,8 +83,9 @@ def build_sandbox_soil(recipe: ProfileRecipe, city: City,
 
 def grow_and_measure(configuration: SceneConfiguration, environment: EnvironmentV4, grow_run,
                      vtp_directory: Path) -> tuple:
-    ensemble = grow_ensemble(configuration, environment, GRID, SecondaryGrowthParameters(),
-                             vtp_directory, grow_run, find_pipe_and_wall_intrusions)
+    ensemble = grow_ensemble(configuration, environment, GRID,
+                             secondary_growth_for(configuration.tree.species), vtp_directory,
+                             grow_run, find_pipe_and_wall_intrusions)
     probability = ensemble.hit_counts["radius"] / len(configuration.root_seeds)
     centreline = ensemble.hit_counts["centreline"]
     in_barrier = environment.soil.static.rootable_fraction <= 0.0

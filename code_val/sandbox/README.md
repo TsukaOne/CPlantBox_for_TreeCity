@@ -131,28 +131,31 @@ Zero intrusions were found over 10 seeds × 2 archetypes × 4 modes (default, `-
 
 ## v4 sandbox — the soil library on a frozen v3 scene
 
-The tree (58 years), pit (82 × 89 cm), five networks, leak and 20 root seeds of v3 scene 1001 stay
-fixed; only the soil, the walls and the water state change. The profile stands alone (no mosaic),
-the pit is loose and drawn once, the year is normal. Same secondary growth and radius voxelisation
-as the v3 generator (`generator.build.grow_ensemble`), plus a wall intrusion check.
+The tree age (58 years), pit (82 × 89 cm), five networks, leak and 20 root seeds of v3 scene 1001
+stay fixed; only the soil, the walls and the water state change. The profile stands alone (no
+mosaic), the pit is loose and drawn once, the year is normal. Same secondary growth and radius
+voxelisation as the v3 generator (`generator.build.grow_ensemble`), plus a wall intrusion check.
+The tree XML is given with `--tree`.
 
 ```bash
 docker run --rm -v "C:\Users\ValentinMarchand\Dev\CPlantBox_for_TreeCity:/workspaces/CPlantBox_for_TreeCity" \
     -w /workspaces/CPlantBox_for_TreeCity/code_val/sandbox cplantbox-image \
-    bash -c "python3 sandbox_v4_profiles.py; python3 sandbox_v4_seasons.py; python3 sandbox_v4_walls.py"
+    bash -c "python3 sandbox_v4_profiles.py --tree my_Picea_abies.xml; python3 sandbox_v4_seasons.py --tree my_Picea_abies.xml; python3 sandbox_v4_walls.py --tree my_Picea_abies.xml"
 ```
 
 | File | Experiment | Time (23 workers) |
 |---|---|---|
 | `sandbox_v4_scene.py` | the frozen scene, the soil it receives, what is measured | — |
-| `sandbox_v4_profiles.py` | E1: 12 profiles × 3 cities × stop at 2.5 / 3.0 MPa; `output/sandbox_v4/profiles.csv` | 97 s |
+| `sandbox_v4_profiles.py` | E1: 12 profiles × 3 cities × stop at 2.5 / 3.0 MPa; `output/sandbox_v4/<xml>/profiles.csv` | 97 s |
 | `sandbox_v4_seasons.py` | E2: mean state against a four-season cycle, P01/P03/P05/P08/P12 × Brussels/Helsinki | 40 s |
 | `sandbox_v4_walls.py` | E3: foundation, narrow strip, confined pit on P01/P05/P08 in Brussels | 17 s |
 
 Each configuration writes a `.vti` (occupancy, f_se, resistance, rootable, walls, pipes) and the
-`.vtp` of run 1 under `output/sandbox_v4/`.
+`.vtp` of run 1 under `output/sandbox_v4/<xml>/`.
 
 ### What was measured
+
+With `Picea_Abies_combined_v6.xml`, before the multi-tree change.
 
 E1 ran before the native subsoils of P03, P04, P06, P09–P12 were set to IN (only P01 was);
 those profiles are a little more favourable now than in these numbers.

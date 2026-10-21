@@ -30,6 +30,7 @@ from soil_v4.water import MEAN_STATE, list_state_fractions
 from visualisation.soil_report import print_scene_report
 
 GRID = VoxelGrid(34, 64, 64, 15.0, 9.0)
+ANY_TREE_XML = "my_Picea_abies.xml"  # the soil, the networks and the walls do not depend on the tree
 SOIL_DOMAIN = 6
 WALL_DOMAIN = 9
 SHOWN_STATES = (MEAN_STATE, "summer")
@@ -70,7 +71,7 @@ def build_fields(soil, states: dict, network) -> dict:
 
 def main() -> None:
     arguments = parse_arguments()
-    configuration = draw_scene(arguments.scene, GRID)
+    configuration = draw_scene(arguments.scene, GRID, tree_xml=ANY_TREE_XML)
     rng = build_generator(MASTER_SEED, arguments.scene, SOIL_DOMAIN)
     city = pick(CITIES, next((c for c in CITIES if c.name == arguments.city), None), rng)
     recipe = pick(PROFILES, next((p for p in PROFILES if p.identifier == arguments.profile), None),

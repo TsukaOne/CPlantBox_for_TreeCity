@@ -25,6 +25,7 @@ from network.walls import PIPE_EXCLUSION_MARGIN_CM
 
 GRID = VoxelGrid(34, 64, 64, 15.0, 9.0)
 SCENE = 1001
+ANY_TREE_XML = "my_Picea_abies.xml"  # the street, the pit and the walls do not depend on the tree
 CHECK_DOMAIN = 99
 POINTS_PER_PANEL = 4000
 SPREAD_CM = 60.0
@@ -56,7 +57,7 @@ def compare_panel(panel, rng: np.random.Generator) -> tuple:
 
 
 def main() -> None:
-    configuration = draw_scene(SCENE, GRID)
+    configuration = draw_scene(SCENE, GRID, tree_xml=ANY_TREE_XML)
     for kind in (FOUNDATION, NARROW_STRIP, CONFINED_PIT):
         rng = build_generator(MASTER_SEED, SCENE, CHECK_DOMAIN)
         module = draw_wall_module(kind, configuration.street, configuration.pit_radius_cm,

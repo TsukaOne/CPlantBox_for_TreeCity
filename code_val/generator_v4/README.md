@@ -1,7 +1,7 @@
 # generator_v4 — dataset v4: the v3 scenes with the urban soil library
 
-Scene k of v4 is v3 scene k (same tree, pit size, street, leaks and root seeds, taken from
-`generator.scene.draw_scene`) with a v4 soil (`soil_library/`, `soil_v4/`), walls
+Scene k of v4 is v3 scene k of the same tree XML (same tree, pit size, street, leaks and root
+seeds, taken from `generator.scene.draw_scene`) with a v4 soil (`soil_library/`, `soil_v4/`), walls
 (`network/wall_*.py`), and roots stopped at 3.0 MPa instead of 2.5. The growth, secondary growth,
 voxelisation and file layout are the v3 ones.
 
@@ -10,11 +10,13 @@ voxelisation and file layout are the v3 ones.
 ```bash
 docker run --rm -v "C:\Users\ValentinMarchand\Dev\CPlantBox_for_TreeCity:/workspaces/CPlantBox_for_TreeCity" \
     -w /workspaces/CPlantBox_for_TreeCity cplantbox-image \
-    bash -c "python3 code_val/build_dataset_v4.py --pilot"
+    bash -c "python3 code_val/build_dataset_v4.py --tree my_Picea_abies.xml --pilot"
 ```
 
-`--pilot` writes identifiers 1–128 (eight blocks, the first scenes of the dataset) to `pilot_v4/`;
-without it, `--scenes 2000` to `dataset_v4/`. Resumable, refuses a design change in a directory.
+`--tree` is required, one or more files of `parameters/`, one folder per tree. `--pilot` writes
+identifiers 1–128 (eight blocks, the first scenes of the dataset) to `pilot_v4/<xml>/`; without it,
+`--scenes 2000` to `dataset_v4/<xml>/`. Resumable, refuses a design change or a modified XML in a
+directory.
 
 ## Who does what
 
@@ -51,7 +53,7 @@ without it, `--scenes 2000` to `dataset_v4/`. Resumable, refuses a design change
 | 24 | `aeration_scale` | mean state |
 | 25 | `saturated_fraction` | share under a water table |
 
-## Key numbers (first block, 16 scenes, 23 workers)
+## Key numbers (first block, 16 scenes, 23 workers, `Picea_Abies_combined_v6.xml`)
 
 | | |
 |---|---|
@@ -63,7 +65,7 @@ without it, `--scenes 2000` to `dataset_v4/`. Resumable, refuses a design change
 | Regenerated block identical to the first | 16/16 |
 | Rootable voxels whose mean-state suction lies outside Whalley's −20…−300 kPa | 35 % (scene 1) |
 
-## Pilot against v3 (`compare_pilot_v4.py`, scenes 1–128)
+## Pilot against v3 (`compare_pilot_v4.py`, scenes 1–128, `Picea_Abies_combined_v6.xml`)
 
 | | |
 |---|---|

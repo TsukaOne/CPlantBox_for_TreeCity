@@ -30,8 +30,9 @@ def find_season(step: int) -> int:
 
 
 def grow_plant_through_seasons(geometry, grids: SeasonalGrids, seed: int, age_years: float,
-                               water_lookup: pb.SoilLookUp, vtp_path: Optional[Path]) -> pb.Plant:
-    plant = create_plant(geometry, grids.elongation[0], seed, grids.angle[0], water_lookup)
+                               tree: Path, water_lookup: pb.SoilLookUp,
+                               vtp_path: Optional[Path]) -> pb.Plant:
+    plant = create_plant(geometry, grids.elongation[0], seed, tree, grids.angle[0], water_lookup)
     season = 0
     for step in range(round(age_years * DAYS_PER_YEAR / TIME_STEP_DAYS)):
         if find_season(step) != season:

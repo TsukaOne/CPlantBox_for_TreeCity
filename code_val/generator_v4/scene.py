@@ -36,6 +36,7 @@ class SceneConfigurationV4:
     street: StreetScene
     leaks: tuple
     root_seeds: tuple
+    tree_xml: str
 
 
 def draw_soil(slot: SceneSlot, pit_radius_cm: float, pit_depth_cm: float, identifier: int,
@@ -56,8 +57,8 @@ def draw_soil(slot: SceneSlot, pit_radius_cm: float, pit_depth_cm: float, identi
 
 
 def draw_scene_v4(identifier: int, grid: VoxelGrid, runs: int = MONTE_CARLO_RUNS,
-                  master_seed: int = MASTER_SEED) -> SceneConfigurationV4:
-    paired = draw_scene(identifier, grid, runs, master_seed)
+                  master_seed: int = MASTER_SEED, *, tree_xml: str) -> SceneConfigurationV4:
+    paired = draw_scene(identifier, grid, runs, master_seed, tree_xml=tree_xml)
     slot = assign_slot(identifier, master_seed)
     wall_rng = build_generator(master_seed, identifier, WALL)
     walls = draw_wall_module(draw_wall_kind(wall_rng), paired.street, paired.pit_radius_cm,
@@ -67,4 +68,5 @@ def draw_scene_v4(identifier: int, grid: VoxelGrid, runs: int = MONTE_CARLO_RUNS
         pit_radius_cm=paired.pit_radius_cm, pit_depth_cm=paired.pit_depth_cm,
         soil=draw_soil(slot, paired.pit_radius_cm, paired.pit_depth_cm, identifier, grid,
                        master_seed),
-        walls=walls, street=paired.street, leaks=paired.leaks, root_seeds=paired.root_seeds)
+        walls=walls, street=paired.street, leaks=paired.leaks, root_seeds=paired.root_seeds,
+        tree_xml=tree_xml)

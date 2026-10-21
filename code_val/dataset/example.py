@@ -19,6 +19,7 @@ from tree.growth import build_soil_grid, grow_root_system
 
 VTP_RUNS_PER_CONFIGURATION = 1
 VTP_NAME_TEMPLATE = "example_{identifier:04d}_run_{run:02d}.vtp"
+TREE_XML = Path("Picea_Abies_combined_v6.xml")  # v1 only grows the tree it was built with
 
 
 class Example(NamedTuple):
@@ -60,7 +61,7 @@ def build_example(configuration: Configuration, grid: VoxelGrid,
     occupancies, outside_samples = [], 0
     for run, seed in enumerate(configuration.root_seeds, start=1):
         roots = grow_root_system(geometry, elongation_grid, seed, configuration.tree.age_years,
-                                 build_vtp_path(vtp_directory, configuration.identifier, run))
+                                 TREE_XML, build_vtp_path(vtp_directory, configuration.identifier, run))
         occupancy = voxelize_structural_roots(roots.segments, roots.subtypes, grid)
         occupancies.append(occupancy.grid)
         outside_samples += occupancy.outside_samples

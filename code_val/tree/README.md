@@ -1,7 +1,8 @@
 # tree — the tree, and the CPlantBox call itself
 
-Three files. One draws what the tree *is*, one lists the species of the project, the last is the
-only place in the repository that actually runs CPlantBox.
+One file draws what the tree *is*, one lists the species of the project, and `growth.py` is the
+only place in the repository that actually runs CPlantBox; `seasons.py` reuses it to swap the soil
+grids every season (v4).
 
 ## Step by step
 
@@ -29,6 +30,8 @@ only place in the repository that actually runs CPlantBox.
 | `attributes.py` | species, age, and the allometries |
 | `species.py` | the registry: one record per species (architecture, XML prefixes, depth decay of the prior, secondary growth), the species and architecture slots of the FiLM vector, `identify_species`, `hash_xml`, `PARAMETERS_DIRECTORY` |
 | `growth.py` | the soil lookups, the three CPlantBox hooks, the simulation loop, and the segment extraction |
+| `seasons.py` | the v4 grower that swaps the `f_se` and `f_sa` grids every season |
+| `check_seasons.py` | CLI: the seasonal grower against `grow_plant` (`--tree`) |
 
 ## The traps, all of them in `growth.py`
 
@@ -104,7 +107,7 @@ at the birth of each lateral, through those parameters, so the swap takes effect
 - **A lost season is lost, not caught up.** CPlantBox recomputes a root's age from its length
   (`calcAge(length)`), so a root stopped for a season resumes where it stopped.
 
-`check_seasons.py`, scene 1001, 10 seeds:
+`check_seasons.py --tree Picea_Abies_combined_v6.xml`, scene 1001, 10 seeds:
 
 | | 5 years | 40 years |
 |---|---|---|

@@ -1,8 +1,8 @@
 """E1: the twelve profile types in the three cities, with a stop at 2.5 and at 3.0 MPa.
 
-    python3 code_val/sandbox/sandbox_v4_profiles.py
+    python3 code_val/sandbox/sandbox_v4_profiles.py --tree my_Picea_abies.xml
 
-Writes output/sandbox_v4/profiles.csv, and per configuration a .vti and the .vtp of run 1.
+Writes output/sandbox_v4/<xml>/profiles.csv, and per configuration a .vti and the .vtp of run 1.
 """
 import csv
 import os
@@ -18,8 +18,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from generator.build import grow_once
 from generator_v4.environment import build_environment_v4
 from network.wall_layouts import NO_WALL, WallModule
-from sandbox_v4_scene import (GRID, OUTPUT_DIRECTORY, build_sandbox_soil, grow_and_measure,
-                              load_frozen_scene, write_fields)
+from sandbox_v4_scene import (GRID, build_sandbox_soil, build_tree_directory, grow_and_measure,
+                              load_frozen_scene, parse_tree, write_fields)
 from soil_library.cities import CITIES
 from soil_library.draw import SOIL
 from soil_library.profiles import PROFILES
@@ -28,7 +28,7 @@ from visualisation.soil_report import measure_limiting_shares
 
 STOP_THRESHOLDS_MPA = (2.5, 3.0)
 NO_WALLS = WallModule(NO_WALL, (), ())
-EXPERIMENT_DIRECTORY = OUTPUT_DIRECTORY / "profiles"
+EXPERIMENT = "profiles"
 
 
 def describe_layers(profile, environment) -> str:
@@ -49,9 +49,10 @@ def describe_layers(profile, environment) -> str:
 
 
 def run_profile_in_city(task: tuple) -> list:
-    profile_index, city_index = task
+    profile_index, city_index, tree_xml = task
     recipe, city = PROFILES[profile_index], CITIES[city_index]
-    configuration = load_frozen_scene()
+    configuration = load_frozen_scene(tree_xml)
+    directory = build_tree_directory(tree_xml) / EXPERIMENT
     soil_scene = build_sandbox_soil(recipe, city, configuration)
     rows = []
     for stop_mpa in STOP_THRESHOLDS_MPA:
@@ -59,8 +60,8 @@ def run_profile_in_city(task: tuple) -> list:
                                            NO_WALLS, stop_mpa, GRID)
         name = f"{recipe.identifier}_{city.name.lower()}_stop_{stop_mpa}"
         probability, measure = grow_and_measure(configuration, environment, grow_once,
-                                                EXPERIMENT_DIRECTORY / name)
-        write_fields(EXPERIMENT_DIRECTORY / f"{name}.vti", environment, probability)
+                                                directory / name)
+        write_fields(directory / f"{name}.vti", environment, probability)
         shares = measure_limiting_shares(environment.soil, environment.states[MEAN_STATE])
         rows.append({"profile": recipe.identifier, "city": city.name, "stop_mpa": stop_mpa,
                      **asdict(measure),
@@ -81,13 +82,16 @@ def print_row(row: dict) -> None:
 
 
 def main() -> None:
-    EXPERIMENT_DIRECTORY.mkdir(parents=True, exist_ok=True)
-    tasks = [(profile, city) for profile in range(len(PROFILES)) for city in range(len(CITIES))]
+    tree_xml = parse_tree(__doc__)
+    directory = build_tree_directory(tree_xml)
+    (directory / EXPERIMENT).mkdir(parents=True, exist_ok=True)
+    tasks = [(profile, city, tree_xml) for profile in range(len(PROFILES))
+             for city in range(len(CITIES))]
     with Pool(max(1, (os.cpu_count() or 2) - 1)) as pool:
         rows = [row for rows in pool.map(run_profile_in_city, tasks) for row in rows]
     for row in rows:
         print_row(row)
-    with open(OUTPUT_DIRECTORY / "profiles.csv", "w", newline="", encoding="utf-8") as handle:
+    with open(directory / f"{EXPERIMENT}.csv", "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)

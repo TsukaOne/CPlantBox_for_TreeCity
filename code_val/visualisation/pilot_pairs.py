@@ -1,6 +1,6 @@
 """Paired scenes side by side: the v3 root target and the v4 one, seen from the side.
 
-    python3 code_val/visualisation/pilot_pairs.py code_val/dataset_v3 code_val/pilot_v4 1 13 101
+    python3 code_val/visualisation/pilot_pairs.py code_val/dataset_v3/my_Picea_abies code_val/pilot_v4/my_Picea_abies 1 13 101
 
 The occupancy is summed along the rows (y) of the box, so each panel is depth against x. Both
 panels of a scene share one colour scale.
@@ -64,7 +64,7 @@ def main() -> None:
     for axes in grid_axes[-1]:
         axes.set_xlabel("x (cm)", color=INK)
     OUTPUT_DIRECTORY.mkdir(parents=True, exist_ok=True)
-    path = OUTPUT_DIRECTORY / f"pairs_{'_'.join(map(str, identifiers))}.png"
+    path = OUTPUT_DIRECTORY / f"pairs_{v4_directory.name}_{'_'.join(map(str, identifiers))}.png"
     figure.savefig(path, dpi=DPI, facecolor=SURFACE)
     print(f"wrote {path}")
 
