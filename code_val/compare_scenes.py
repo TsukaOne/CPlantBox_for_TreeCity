@@ -61,8 +61,8 @@ def main() -> None:
     for stem in stems:
         differences = find_scene_differences(stem, arguments.reference, arguments.candidate)
         different += bool(differences)
-        print(f"{stem}  {'identique' if not differences else 'DIFFERENT: ' + ', '.join(differences)}")
-    print(f"{len(stems) - different}/{len(stems)} scenes identiques")
+        print(f"{stem}  {'identical' if not differences else 'DIFFERENT: ' + ', '.join(differences)}")
+    print(f"{len(stems) - different}/{len(stems)} scenes identical")
     raise SystemExit(1 if different else 0)
 
 

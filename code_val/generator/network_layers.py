@@ -1,7 +1,7 @@
-"""Ce que les reseaux enterres imposent a une scene, independamment du sol qu'on y met.
+"""What the buried networks impose on a scene, whatever soil it is filled with.
 
-Tout est deterministe : la partie aleatoire (le trace des reseaux, les fuites) est deja tiree dans
-la configuration, donc ce calcul peut preceder ou suivre celui du sol sans changer un tirage.
+Everything here is deterministic: the random part (the network layout, the leaks) is already
+drawn in the configuration, so this can run before or after the soil without moving a draw.
 """
 from dataclasses import dataclass
 
