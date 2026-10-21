@@ -1,8 +1,9 @@
-"""A vertical section through the trunk of a soil .vti written by soil_scene.py.
+"""A vertical section through the trunk, across the street (along y), of a soil .vti written by
+soil_scene.py.
 
-    python3 code_val/visualisation/soil_section.py output/soil_v4/scene_01001_P08_helsinki.vti
+    python3 code_val/visualisation/soil_section.py output/soil_v4/scene_01001_P08_helsinki_none.vti
 
-Black lines outline the planting pit, white lines the pipes.
+Black lines outline the planting pit, white lines the pipes, orange lines the walls.
 """
 import sys
 from pathlib import Path
@@ -30,19 +31,21 @@ PANEL_COLUMNS = 3
 FIGURE_SIZE_INCHES = (18, 8)
 DPI = 120
 OUTLINE_LEVEL = 0.5
+WALL_COLOUR = "#eb6834"
 
 
 def paint_section(axes, fields: dict, name: str, label: str, limits: tuple, colours) -> None:
-    row = GRID.row_cells // 2
-    extent = (-GRID.half_width_cm, GRID.half_width_cm, GRID.depth_cm, 0.0)
-    image = axes.imshow(fields[name][:, row, :], extent=extent, aspect="auto", cmap=colours,
+    column = GRID.column_cells // 2
+    extent = (-GRID.half_length_cm, GRID.half_length_cm, GRID.depth_cm, 0.0)
+    image = axes.imshow(fields[name][:, :, column], extent=extent, aspect="auto", cmap=colours,
                         vmin=limits[0], vmax=limits[1], interpolation="nearest")
-    columns_cm = (np.arange(GRID.column_cells) + 0.5) * GRID.cell_width_cm - GRID.half_width_cm
-    for outline, colour in (("pit", INK), ("pipes", SURFACE)):
-        axes.contour(columns_cm, GRID.measure_layer_depths_cm(), fields[outline][:, row, :] > 0,
-                     levels=[OUTLINE_LEVEL], colors=colour)
+    rows_cm = (np.arange(GRID.row_cells) + 0.5) * GRID.cell_width_cm - GRID.half_length_cm
+    for outline, colour in (("pit", INK), ("pipes", SURFACE), ("walls", WALL_COLOUR)):
+        axes.contour(rows_cm, GRID.measure_layer_depths_cm(),
+                     fields[outline][:, :, column] > OUTLINE_LEVEL, levels=[OUTLINE_LEVEL],
+                     colors=colour)
     axes.set_title(label, color=INK)
-    axes.set_xlabel("distance from the trunk (cm)", color=INK)
+    axes.set_xlabel("distance from the trunk across the street, y (cm)", color=INK)
     axes.set_ylabel("depth (cm)", color=INK)
     plt.colorbar(image, ax=axes)
 
