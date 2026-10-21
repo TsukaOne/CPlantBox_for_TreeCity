@@ -15,11 +15,10 @@ from grid import VoxelGrid
 from network.wall_measures import measure_wall_fraction
 from soil.mosaic import build_patch_weights
 from soil_library.cities import City
-from soil_library.profiles import ProfileRecipe
 from soil_v4.column import StaticSoil, convert_layer_to_soil
 from soil_v4.field import blend_patches, build_static_field
 from soil_v4.fills import Backfills, apply_fills, draw_backfills
-from soil_v4.mosaic import ProfileMosaic, draw_profile_mosaic
+from soil_v4.mosaic import ProfileMosaic
 from soil_v4.pit import PIT_MATERIALS, PlantingPit, apply_pit, build_pit_mask, draw_planting_pit
 from soil_v4.retention import estimate_retention
 from soil_v4.state import SoilState, compute_soil_state
@@ -50,9 +49,8 @@ class SceneSoil:
     wall_fraction: np.ndarray
 
 
-def draw_soil_scene(city: City, primary: ProfileRecipe, pit_radius_cm: float, pit_depth_cm: float,
-                    pit_variant: str, grid: VoxelGrid, rng: np.random.Generator) -> SoilScene:
-    mosaic = draw_profile_mosaic(primary, city, grid, rng)
+def draw_soil_scene(city: City, mosaic: ProfileMosaic, pit_radius_cm: float, pit_depth_cm: float,
+                    pit_variant: str, rng: np.random.Generator) -> SoilScene:
     pit_material = PIT_MATERIALS[rng.integers(len(PIT_MATERIALS))]
     pit = draw_planting_pit(pit_radius_cm, pit_depth_cm, pit_variant, pit_material, rng)
     sealed_surface = mosaic.patches[0].profile.sealed_surface

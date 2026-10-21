@@ -97,3 +97,49 @@ Zero intrusions were found over 10 seeds × 2 archetypes × 4 modes (default, `-
   occupancy instead.
 - **The output directories are not cleaned.** Two runs with the same flags overwrite each other;
   different flags land in different folders.
+
+## v4 sandbox — the soil library on a frozen v3 scene
+
+The tree (58 years), pit (82 × 89 cm), five networks, leak and 20 root seeds of v3 scene 1001 stay
+fixed; only the soil, the walls and the water state change. The profile stands alone (no mosaic),
+the pit is loose and drawn once, the year is normal. Same secondary growth and radius voxelisation
+as the v3 generator (`generator.build.grow_ensemble`), plus a wall intrusion check.
+
+```bash
+docker run --rm -v "C:\Users\ValentinMarchand\Dev\CPlantBox_for_TreeCity:/workspaces/CPlantBox_for_TreeCity" \
+    -w /workspaces/CPlantBox_for_TreeCity/code_val/sandbox cplantbox-image \
+    bash -c "python3 sandbox_v4_profiles.py; python3 sandbox_v4_seasons.py; python3 sandbox_v4_walls.py"
+```
+
+| File | Experiment | Time (23 workers) |
+|---|---|---|
+| `sandbox_v4_scene.py` | the frozen scene, the soil it receives, what is measured | — |
+| `sandbox_v4_profiles.py` | E1: 12 profiles × 3 cities × stop at 2.5 / 3.0 MPa; `output/sandbox_v4/profiles.csv` | 97 s |
+| `sandbox_v4_seasons.py` | E2: mean state against a four-season cycle, P01/P03/P05/P08/P12 × Brussels/Helsinki | 40 s |
+| `sandbox_v4_walls.py` | E3: foundation, narrow strip, confined pit on P01/P05/P08 in Brussels | 17 s |
+
+Each configuration writes a `.vti` (occupancy, f_se, resistance, rootable, walls, pipes) and the
+`.vtp` of run 1 under `output/sandbox_v4/`.
+
+### What was measured
+
+- **No tree is stillborn, no root enters a pipe or a wall** in any of the 72 + 50 + 12 ensembles.
+- **Profiles order as expected.** Root mass (mean occupancy) at 2.5 MPa: engineered substrates
+  P11/P12 0.0034–0.0040, deep natural soil P01 0.0034–0.0038, compacted P05 0.0025, thin soil
+  P02 0.0022–0.0026, sealed P08 0.0020–0.0023. The v3 soil of the same scene gave 0.0013.
+- **Mechanical impedance limits almost everywhere**; water never in the mean state; air in P03
+  (61–82 % of the limited voxels, roots stop at the water table); the barrier in P02 (82 %).
+- **The stop threshold is a first-order parameter**: 3.0 instead of 2.5 MPa raises the mass by
+  20 to 55 % and the occupancy-weighted radius by 20 to 35 cm, in every profile.
+- **Seasons do not change the result.** Overlap of the cycle with the mean state 0.77–0.86, above
+  the noise floor of the mean state with other seeds (0.73–0.83, the cycle shares its seeds);
+  mass within ±11 %, mean depth within ±1.5 cm. A stopped winter costs 15 to 31 % of the mass
+  and 9 to 32 cm of radius at 58 years; growing 4/3 faster the rest of the year recovers most of
+  it (mass 0.84–0.97).
+- **Walls.** A confined pit keeps 9 to 12 % of the mass outside its ring instead of 36 to 49 %, and
+  the roots dive under its 59 cm walls (maximum depth +12 to +20 cm). A narrow-strip facade cuts
+  the 4 to 8 % of the mass that grew behind it. The foundation, 240 to 450 cm away, is out of
+  reach of this 58-year-old tree.
+- **Barriers leak by one growth step.** 0.1 to 3 % of the centreline samples end in a fully
+  non-rootable cell (rock, slab, asphalt): a tip slides one `dx` (up to 3 cm) into the cell before
+  the nearest-cell lookup stops it.

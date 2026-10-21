@@ -10,7 +10,8 @@ import numpy as np
 
 from grid import VoxelGrid
 from soil.mosaic import (BOUNDARY_WANDER_CM, BOUNDARY_WANDER_LENGTH_CM, PATCH_COUNT_RANGE,
-                         PRIMARY_SEED_RADIUS_CM, draw_seed_cm, draw_transition_length_cm)
+                         PRIMARY_SEED_RADIUS_CM, SHARP_TRANSITION_LENGTH_CM, draw_seed_cm,
+                         draw_transition_length_cm)
 from soil_library.cities import City
 from soil_library.draw import DrawnProfile, draw_profile
 from soil_library.profiles import PROFILES, ProfileRecipe
@@ -34,6 +35,11 @@ class ProfileMosaic:
     boundary_seed: int
 
 
+def single_profile_mosaic(profile: DrawnProfile) -> ProfileMosaic:
+    return ProfileMosaic((ProfilePatch(profile, 0.0, 0.0),), SHARP_TRANSITION_LENGTH_CM,
+                         BOUNDARY_WANDER_CM, BOUNDARY_WANDER_LENGTH_CM, 0)
+
+
 def draw_primary_seed_cm(rng: np.random.Generator) -> tuple[float, float]:
     angle = float(rng.uniform(0.0, 2.0 * np.pi))
     radius = float(rng.uniform(0.0, PRIMARY_SEED_RADIUS_CM))
@@ -44,7 +50,8 @@ def draw_profile_mosaic(primary: ProfileRecipe, city: City, grid: VoxelGrid,
                         rng: np.random.Generator) -> ProfileMosaic:
     count = int(rng.integers(PATCH_COUNT_RANGE[0], PATCH_COUNT_RANGE[1] + 1))
     others = [recipe for recipe in PROFILES if recipe.identifier != primary.identifier]
-    recipes = [primary] + [others[index] for index in rng.choice(len(others), count - 1, replace=False)]
+    companions = rng.choice(len(others), count - 1, replace=False)
+    recipes = [primary] + [others[index] for index in companions]
 
     seeds, patches = [], []
     for recipe in recipes:

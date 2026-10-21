@@ -54,7 +54,7 @@ def build_bottom_layer(compaction_classes: tuple[str, ...]) -> LayerRecipe:
 PROFILES = (
     ProfileRecipe("P01", "deep natural soil", ("A1", "A2", "A3", "A4"), "none (control)", (
         build_layer((NATURAL,), 20, 50, SOFT),
-        build_bottom_layer(MEDIUM))),
+        build_bottom_layer(("IN",)))),
     ProfileRecipe("P02", "thin soil over a hard layer", ("A5", "E4"), "depth", (
         LayerRecipe((NATURAL, IMPORTED_TOPSOIL), ValueRange(20, 60, DESIGN_DOCUMENT), SOFT),
         LayerRecipe((CITY_BARRIER,), None))),

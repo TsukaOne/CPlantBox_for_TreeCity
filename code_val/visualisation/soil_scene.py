@@ -24,6 +24,7 @@ from soil.growth_response import STOPPED_GROWTH_RESISTANCE_MPA
 from soil_library.cities import CITIES
 from soil_library.profiles import PROFILES
 from soil_v4.pit import PIT_VARIANTS
+from soil_v4.mosaic import draw_profile_mosaic
 from soil_v4.scene import build_scene_soil, compute_scene_state, draw_soil_scene
 from soil_v4.water import MEAN_STATE, list_state_fractions
 from visualisation.soil_report import print_scene_report
@@ -76,8 +77,9 @@ def main() -> None:
                   rng)
     variant = pick(list(PIT_VARIANTS), arguments.pit, rng)
 
-    scene = draw_soil_scene(city, recipe, configuration.pit_radius_cm, configuration.pit_depth_cm,
-                            variant, GRID, rng)
+    mosaic = draw_profile_mosaic(recipe, city, GRID, rng)
+    scene = draw_soil_scene(city, mosaic, configuration.pit_radius_cm, configuration.pit_depth_cm,
+                            variant, rng)
     wall_rng = build_generator(MASTER_SEED, arguments.scene, WALL_DOMAIN)
     wall_kind = draw_wall_kind(wall_rng)
     walls = draw_wall_module(arguments.walls or wall_kind, configuration.street,

@@ -31,3 +31,12 @@ def measure_wall_fraction(panels: tuple[TrenchSlab, ...], grid: VoxelGrid) -> np
     if not panels:
         return np.zeros(grid.shape, np.float32)
     return np.clip(np.sum([build_coverage(panel, grid) for panel in panels], axis=0), 0.0, 1.0)
+
+
+def find_wall_intrusions(segments: np.ndarray, panels: tuple[TrenchSlab, ...]) -> dict:
+    """Against the true wall, at the nodes, as network/intrusion.py does for the pipes."""
+    if len(segments) == 0:
+        return {}
+    nodes = np.vstack([segments[:, :3], segments[:, 3:6]])
+    depths = {panel.name: -float(measure_wall_distance(panel, nodes).min()) for panel in panels}
+    return {name: depth for name, depth in depths.items() if depth > 0.0}

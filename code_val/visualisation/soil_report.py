@@ -7,6 +7,16 @@ from soil_v4.retention import ROSETTA_MAXIMUM_DENSITY_G_CM3
 LIMITING_FACTORS = ("bengough", "water_scale", "aeration_scale")
 
 
+def measure_limiting_shares(soil, state) -> dict:
+    """Share of the voxels outside the pit where each factor is the one holding f_se below 1."""
+    factors = {"barrier": soil.static.rootable_fraction,
+               **{name: getattr(state, name) for name in LIMITING_FACTORS}}
+    weakest = np.stack(list(factors.values())).argmin(axis=0)
+    limited = (state.growth_scale < 1.0) & ~soil.pit_mask
+    return {name: float((weakest == index)[limited].sum() / (~soil.pit_mask).sum())
+            for index, name in enumerate(factors)}
+
+
 def print_scene_report(scene, walls, soil, state, grid: VoxelGrid) -> None:
     pit_bottom_cm = (np.flatnonzero(soil.pit_mask.any(axis=(1, 2))).max() + 1) * grid.cell_height_cm
     seasons = ", ".join(f"{value:.2f}" for value in scene.water.seasonal_water_fraction)
@@ -19,12 +29,7 @@ def print_scene_report(scene, walls, soil, state, grid: VoxelGrid) -> None:
           f" statuses {walls.statuses}")
     print(f"mean state f_se: pit {state.growth_scale[soil.pit_mask].mean():.2f},"
           f" outside {state.growth_scale[~soil.pit_mask].mean():.2f}")
-
-    factors = {"barrier": soil.static.rootable_fraction,
-               **{name: getattr(state, name) for name in LIMITING_FACTORS}}
-    weakest = np.stack(list(factors.values())).argmin(axis=0)
-    for index, name in enumerate(factors):
-        share = ((weakest == index) & (state.growth_scale < 1.0)).mean()
-        print(f"  limited by {name}: {share:.1%} of voxels")
+    for name, share in measure_limiting_shares(soil, state).items():
+        print(f"  outside the pit, limited by {name}: {share:.1%} of voxels")
     capped = (soil.static.fine_earth_density_g_cm3 > ROSETTA_MAXIMUM_DENSITY_G_CM3).mean()
     print(f"  density capped for Rosetta: {capped:.1%} of voxels")

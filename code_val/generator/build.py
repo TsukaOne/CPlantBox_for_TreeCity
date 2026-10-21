@@ -44,11 +44,7 @@ def measure_maximum_depth_cm(starts: np.ndarray, ends: np.ndarray) -> float:
     return float(-min(starts[:, 2].min(), ends[:, 2].min()))
 
 
-def grow_once(configuration: SceneConfiguration, environment, grid: VoxelGrid, seed: int,
-              parameters: SecondaryGrowthParameters, vtp_path) -> tuple:
-    plant = grow_plant(environment.geometry, environment.elongation_grid, seed,
-                       configuration.tree.age_years, vtp_path,
-                       angle_grid=environment.angle_grid, water_lookup=environment.water_lookup)
+def measure_plant(plant, grid: VoxelGrid, parameters: SecondaryGrowthParameters) -> tuple:
     polydata = extract_polydata(plant)
     radii, _ = build_final_radii(polydata, parameters)
     segments = build_polysegments(polydata, radii)
@@ -56,6 +52,18 @@ def grow_once(configuration: SceneConfiguration, environment, grid: VoxelGrid, s
     occupancies, outside = stamp_classes(sample_segments(select_structural(segments)), grid)
     return (occupancies, accumulate_volume(sample_segments(segments), grid),
             polydata, radii, segments, outside)
+
+
+def grow_once(configuration: SceneConfiguration, environment, grid: VoxelGrid, seed: int,
+              parameters: SecondaryGrowthParameters, vtp_path) -> tuple:
+    plant = grow_plant(environment.geometry, environment.elongation_grid, seed,
+                       configuration.tree.age_years, vtp_path,
+                       angle_grid=environment.angle_grid, water_lookup=environment.water_lookup)
+    return measure_plant(plant, grid, parameters)
+
+
+def find_lumen_intrusions(environment, segments: np.ndarray) -> dict:
+    return find_intrusions(segments, environment.lumens)
 
 
 def build_fields(environment, hit_counts: dict, runs: int) -> dict:
@@ -85,7 +93,9 @@ class Ensemble:
 
 
 def grow_ensemble(configuration, environment, grid: VoxelGrid,
-                  parameters: SecondaryGrowthParameters, vtp_directory: Path) -> Ensemble:
+                  parameters: SecondaryGrowthParameters, vtp_directory: Path,
+                  grow_run=grow_once, find_run_intrusions=find_lumen_intrusions) -> Ensemble:
+    """grow_run and find_run_intrusions let v4 grow through the seasons and check its walls."""
     stacks, volumes = defaultdict(list), []
     segment_counts, depths, intrusions, outside = [], [], {}, 0
     polylines = {}
@@ -94,7 +104,7 @@ def grow_ensemble(configuration, environment, grid: VoxelGrid,
     for run, seed in enumerate(configuration.root_seeds, start=1):
         path = None if vtp_directory is None or run > VTP_RUNS_PER_SCENE else \
             vtp_directory / f"scene_{configuration.identifier:05d}_run_{run:02d}.vtp"
-        occupancies, volume, polydata, radii, segments, missed = grow_once(
+        occupancies, volume, polydata, radii, segments, missed = grow_run(
             configuration, environment, grid, seed, parameters, path)
 
         for name, occupancy in occupancies.items():
@@ -103,8 +113,8 @@ def grow_ensemble(configuration, environment, grid: VoxelGrid,
         segment_counts.append(len(segments.starts))
         depths.append(measure_maximum_depth_cm(segments.starts, segments.ends))
         outside += missed
-        for name, depth in find_intrusions(np.hstack([segments.starts, segments.ends]),
-                                           environment.lumens).items():
+        for name, depth in find_run_intrusions(environment,
+                                               np.hstack([segments.starts, segments.ends])).items():
             intrusions[name] = max(intrusions.get(name, 0.0), depth)
         if run == 1:
             polylines = {"points": polydata.points.astype(np.float32),
