@@ -75,13 +75,17 @@ def build_fields(environment, hit_counts: dict, runs: int) -> dict:
             "patches": environment.patch_labels}
 
 
-def build_scene(configuration: SceneConfiguration, grid: VoxelGrid,
-                parameters: SecondaryGrowthParameters = SecondaryGrowthParameters(),
-                vtp_directory: Path = None) -> Example:
-    started = time.perf_counter()
-    environment = build_environment(configuration, grid)
-    soil_seconds = time.perf_counter() - started
+@dataclass
+class Ensemble:
+    hit_counts: dict
+    packed_runs: dict
+    root_volume: np.ndarray
+    polylines: dict
+    diagnostics: dict
 
+
+def grow_ensemble(configuration, environment, grid: VoxelGrid,
+                  parameters: SecondaryGrowthParameters, vtp_directory: Path) -> Ensemble:
     stacks, volumes = defaultdict(list), []
     segment_counts, depths, intrusions, outside = [], [], {}, 0
     polylines = {}
@@ -112,21 +116,12 @@ def build_scene(configuration: SceneConfiguration, grid: VoxelGrid,
     runs = len(configuration.root_seeds)
     hit_counts = {name: np.sum(stack, axis=0, dtype=np.uint16) for name, stack in stacks.items()}
     target = hit_counts["radius"] / runs
-    prior = build_prior(configuration.tree, grid)
-
-    return Example(
-        inputs=build_input_tensor(environment, prior, grid),
-        film=build_film_vector(configuration),
-        prior_v2=build_prior_v2(prior, environment.growth_scale, environment.pipe_fraction,
-                                environment.leak_plume, LEAK_PRIOR_BOOST),
+    return Ensemble(
         hit_counts=hit_counts,
         packed_runs={name: np.packbits(np.stack(stacks[name])) for name in PACKED_OCCUPANCIES},
         root_volume=np.mean(volumes, axis=0).astype(np.float32),
         polylines=polylines,
-        fields=build_fields(environment, hit_counts, runs),
-        diagnostics={"runtime_seconds": round(time.perf_counter() - started, 1),
-                     "soil_seconds": round(soil_seconds, 1),
-                     "growth_seconds": round(growth_seconds, 1),
+        diagnostics={"growth_seconds": round(growth_seconds, 1),
                      "segments_mean": float(np.mean(segment_counts)),
                      "segments_std": float(np.std(segment_counts)),
                      "max_depth_cm_mean": float(np.mean(depths)),
@@ -138,4 +133,30 @@ def build_scene(configuration: SceneConfiguration, grid: VoxelGrid,
                      "support_voxel_fraction": float((target > 0).mean()),
                      "samples_outside_grid": int(outside),
                      "intrusions": {name: float(depth) for name, depth in intrusions.items()}},
+    )
+
+
+def build_scene(configuration: SceneConfiguration, grid: VoxelGrid,
+                parameters: SecondaryGrowthParameters = SecondaryGrowthParameters(),
+                vtp_directory: Path = None) -> Example:
+    started = time.perf_counter()
+    environment = build_environment(configuration, grid)
+    soil_seconds = time.perf_counter() - started
+
+    ensemble = grow_ensemble(configuration, environment, grid, parameters, vtp_directory)
+    prior = build_prior(configuration.tree, grid)
+
+    return Example(
+        inputs=build_input_tensor(environment, prior, grid),
+        film=build_film_vector(configuration),
+        prior_v2=build_prior_v2(prior, environment.growth_scale, environment.pipe_fraction,
+                                environment.leak_plume, LEAK_PRIOR_BOOST),
+        hit_counts=ensemble.hit_counts,
+        packed_runs=ensemble.packed_runs,
+        root_volume=ensemble.root_volume,
+        polylines=ensemble.polylines,
+        fields=build_fields(environment, ensemble.hit_counts, len(configuration.root_seeds)),
+        diagnostics={"runtime_seconds": round(time.perf_counter() - started, 1),
+                     "soil_seconds": round(soil_seconds, 1),
+                     **ensemble.diagnostics},
     )

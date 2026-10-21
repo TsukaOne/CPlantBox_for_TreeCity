@@ -20,7 +20,7 @@ import numpy as np
 
 from dataset.tensors import (CROWN_DEPTH_RANGE_M, DBH_RANGE_CM, HEIGHT_RANGE_M, build_one_hot,
                              normalise)
-from generator.environment import CLEARANCE_CLIP_CM
+from generator.network_layers import CLEARANCE_CLIP_CM
 from generator.scene import TREE_PIT_RADIUS_RANGE_CM, SceneConfiguration
 from hybrid.channels import ADDED_CHANNEL_NAMES, build_added_channels, select_hybrid_channel_names
 from soil.archetypes import BULK_DENSITY_RANGE_G_CM3, PENETROMETER_RANGE_MPA

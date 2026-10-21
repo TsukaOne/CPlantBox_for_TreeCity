@@ -70,10 +70,11 @@ def collect_dataset(paths: list, schema: dict) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
+    parser.add_argument("--schema", type=Path, default=SCHEMA_PATH)
     arguments = parser.parse_args()
 
     # En octets, pour rendre les fins de ligne telles quelles sous Windows comme sous Linux.
-    text = SCHEMA_PATH.read_bytes().decode("utf-8")
+    text = arguments.schema.read_bytes().decode("utf-8")
     schema = json.loads(text)
     paths = sorted((arguments.dataset / SITE_REQUEST_SUBDIRECTORY).glob("scene_*.json"))
     buckets = collect_dataset(paths, schema)
@@ -81,8 +82,8 @@ def main() -> None:
         if not buckets[path]:
             print(f"aucune valeur pour {'.'.join(path)} : plage conservee")
 
-    SCHEMA_PATH.write_bytes(rewrite_ranges(text, schema, buckets).encode("utf-8"))
-    print(f"{len(paths)} site_request valides, plages reecrites dans {SCHEMA_PATH.name}")
+    arguments.schema.write_bytes(rewrite_ranges(text, schema, buckets).encode("utf-8"))
+    print(f"{len(paths)} site_request valides, plages reecrites dans {arguments.schema.name}")
 
 
 if __name__ == "__main__":
