@@ -3,13 +3,18 @@
 Roots grow in the mean water state, stopped at 3.0 MPa: the stop threshold of trees rather than
 of crops (Day & Bassuk 1994, Watson 2014), chosen at the sandbox checkpoint. The growth, the
 secondary growth and the voxelisation are the v3 ones; the intrusion check adds the walls.
+
+The hydrotropism is not wired: the mean state has no water gradient to follow (water scale 1 in
+every rootable voxel of the first 16 pilot scenes), so it only replaced the XML tropisms of
+subtypes 5 and 6 by a dive.
 """
 import time
+from functools import partial
 
 import numpy as np
 
 from dataset.tensors import build_prior
-from generator.build import Example, grow_ensemble, grow_once
+from generator.build import Example, GrowthOptions, grow_ensemble, grow_once
 from generator_v4.environment import build_environment_v4, find_pipe_and_wall_intrusions
 from generator_v4.scene import SceneConfigurationV4
 from generator_v4.tensors import build_film_vector_v5, build_input_tensor_v5
@@ -21,6 +26,8 @@ from soil_v4.retention import ROSETTA_MAXIMUM_DENSITY_G_CM3
 from soil_v4.water import MEAN_STATE
 
 STOPPED_GROWTH_RESISTANCE_MPA = 3.0
+GROWTH_OPTIONS = GrowthOptions(use_hydrotropism=False)
+grow_once_v4 = partial(grow_once, options=GROWTH_OPTIONS)
 
 
 def build_fields(environment, hit_counts: dict, runs: int) -> dict:
@@ -58,8 +65,8 @@ def build_scene_v4(configuration: SceneConfigurationV4, grid: VoxelGrid,
     environment = build_environment_v4(configuration.street, configuration.leaks, configuration.soil,
                                        configuration.walls, STOPPED_GROWTH_RESISTANCE_MPA, grid)
     soil_seconds = time.perf_counter() - started
-    ensemble = grow_ensemble(configuration, environment, grid, parameters, vtp_directory, grow_once,
-                             find_pipe_and_wall_intrusions)
+    ensemble = grow_ensemble(configuration, environment, grid, parameters, vtp_directory,
+                             grow_once_v4, find_pipe_and_wall_intrusions)
     prior = build_prior(configuration.tree, grid)
     mean = environment.states[MEAN_STATE]
     return Example(
@@ -72,6 +79,8 @@ def build_scene_v4(configuration: SceneConfigurationV4, grid: VoxelGrid,
         root_volume=ensemble.root_volume,
         polylines=ensemble.polylines,
         fields=build_fields(environment, ensemble.hit_counts, len(configuration.root_seeds)),
-        diagnostics={"runtime_seconds": round(time.perf_counter() - started, 1),
+        diagnostics={"growth_options": {"angle_scale": GROWTH_OPTIONS.use_angle_scale,
+                                        "hydrotropism": GROWTH_OPTIONS.use_hydrotropism},
+                     "runtime_seconds": round(time.perf_counter() - started, 1),
                      "soil_seconds": round(soil_seconds, 1),
                      **ensemble.diagnostics, **measure_soil_diagnostics(environment)})

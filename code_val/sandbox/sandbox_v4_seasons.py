@@ -19,7 +19,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from generator.build import grow_once, measure_plant
+from generator.build import measure_plant
+from generator_v4.build import grow_once_v4
 from generator_v4.environment import build_environment_v4
 from network.wall_layouts import NO_WALL, WallModule
 from sandbox_v4_scene import (GRID, build_sandbox_soil, build_tree_directory, grow_and_measure,
@@ -58,7 +59,7 @@ def build_seasonal_grower(grids: SeasonalGrids):
     def grow_through_seasons(configuration, environment, grid, seed, parameters, vtp_path):
         plant = grow_plant_through_seasons(environment.geometry, grids, seed,
                                            configuration.tree.age_years,
-                                           Path(configuration.tree_xml), environment.water_lookup,
+                                           Path(configuration.tree_xml), None,
                                            vtp_path)
         return measure_plant(plant, grid, parameters)
     return grow_through_seasons
@@ -81,10 +82,10 @@ def run_cycles(task: tuple) -> str:
                                        STOPPED_GROWTH_RESISTANCE_MPA, GRID)
     directory = (build_tree_directory(tree_xml) / EXPERIMENT
                  / f"{recipe.identifier}_{city.name.lower()}")
-    reference = grow_and_measure(configuration, environment, grow_once, directory / "mean")
+    reference = grow_and_measure(configuration, environment, grow_once_v4, directory / "mean")
     other_seeds = replace(configuration, root_seeds=tuple(seed + NOISE_SEED_OFFSET
                                                           for seed in configuration.root_seeds))
-    probability, measure = grow_and_measure(other_seeds, environment, grow_once,
+    probability, measure = grow_and_measure(other_seeds, environment, grow_once_v4,
                                             directory / "other_seeds")
     lines = [f"{recipe.identifier} {city.name}: mean state mass {reference[1].mass:.5f},"
              f" mean depth {reference[1].mean_depth_cm:.1f} cm",

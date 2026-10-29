@@ -32,3 +32,7 @@ class ValueRange:
 
     def draw(self, rng: np.random.Generator) -> float:
         return float(rng.uniform(self.low, self.high))
+
+    @property
+    def middle(self) -> float:
+        return 0.5 * (self.low + self.high)

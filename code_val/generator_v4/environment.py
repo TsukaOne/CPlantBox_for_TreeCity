@@ -2,7 +2,7 @@
 walls, the networks, the CPlantBox domain and the lookups of the mean state.
 
 The lookups and the geometry must stay referenced for the whole Monte Carlo loop: CPlantBox
-holds the geometry and the hydrotropism soil by weak reference.
+holds the geometry by weak reference.
 """
 from dataclasses import dataclass
 
@@ -15,7 +15,7 @@ from network.wall_layouts import WallModule
 from network.wall_measures import find_wall_intrusions
 from soil_v4.scene import SceneSoil, SoilScene, build_scene_soil, compute_scene_state
 from soil_v4.water import MEAN_STATE, list_state_fractions
-from tree.growth import build_interpolated_soil_grid, build_soil_grid
+from tree.growth import build_soil_grid
 
 
 @dataclass
@@ -28,7 +28,6 @@ class EnvironmentV4:
     geometry: object
     elongation_grid: object
     angle_grid: object
-    water_lookup: object
 
 
 def build_environment_v4(street: StreetScene, leaks: tuple, soil_scene: SoilScene, walls: WallModule,
@@ -42,8 +41,7 @@ def build_environment_v4(street: StreetScene, leaks: tuple, soil_scene: SoilScen
         soil=soil, network=network, walls=walls, states=states, lumens=network.shapes.lumens,
         geometry=build_scene_geometry(network.shapes.lumens, walls.panels, grid),
         elongation_grid=build_soil_grid(mean.growth_scale, grid),
-        angle_grid=build_soil_grid(mean.angle_scale, grid),
-        water_lookup=build_interpolated_soil_grid(mean.water_scale, grid))
+        angle_grid=build_soil_grid(mean.angle_scale, grid))
 
 
 def find_pipe_and_wall_intrusions(environment: EnvironmentV4, segments) -> dict:

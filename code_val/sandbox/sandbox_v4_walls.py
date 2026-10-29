@@ -15,7 +15,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from generator.build import grow_once
+from generator_v4.build import grow_once_v4
 from generator_v4.environment import build_environment_v4
 from network.coverage import measure_cell_axes_cm
 from network.street import build_frame
@@ -61,7 +61,8 @@ def run_wall_kind(task: tuple) -> tuple:
                                        build_sandbox_soil(recipe, city, configuration), walls,
                                        STOPPED_GROWTH_RESISTANCE_MPA, GRID)
     name = f"{profile_name}_{kind}"
-    probability, measure = grow_and_measure(configuration, environment, grow_once, directory / name)
+    probability, measure = grow_and_measure(configuration, environment, grow_once_v4,
+                                            directory / name)
     write_fields(directory / f"{name}.vti", environment, probability)
     return profile_name, kind, walls, probability, measure
 

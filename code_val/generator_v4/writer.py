@@ -1,9 +1,11 @@
-"""The files of a v4 scene, in the v3 layout: .npz, .vti, site_request/ and the descriptor last.
+"""The files of a v4 scene, in the v3 layout: .npz, .vti if asked, site_request/ and the descriptor
+last.
 
 The v3 writers are reused as they are; only what differs is overwritten: the channel and FiLM
 names, the schema versions, the soil physics, and the contract the scene is redescribed in.
 """
 import os
+from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
@@ -16,6 +18,7 @@ from generator_v4.tensors import (BASELINE_CHANNEL_NAMES, CHANNEL_NAMES, CHANNEL
                                   HYBRID_CHANNEL_NAMES)
 from grid import VoxelGrid
 from paraview import write_voxel_grids
+from soil_v4.pit import ROOT_BALL, ROOT_BALL_RADIUS_CM
 from soil_v4.water import MEAN_STATE
 
 
@@ -29,12 +32,14 @@ def build_descriptor_v4(configuration: SceneConfigurationV4, example, grid: Voxe
                        "hybrid_channel_names": list(HYBRID_CHANNEL_NAMES),
                        "film_names": list(FILM_NAMES),
                        "soil_physics": {"water_state": MEAN_STATE,
-                                        "stopped_growth_mpa": STOPPED_GROWTH_RESISTANCE_MPA}})
+                                        "stopped_growth_mpa": STOPPED_GROWTH_RESISTANCE_MPA,
+                                        "root_ball": {"radius_cm": ROOT_BALL_RADIUS_CM,
+                                                      **asdict(ROOT_BALL)}}})
     return descriptor
 
 
 def write_scene_v4(directory: Path, configuration: SceneConfigurationV4, example, grid: VoxelGrid,
-                   parameters) -> Path:
+                   parameters, write_vti: bool) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     archive_path, descriptor_path, voxel_path, request_path = build_paths(directory,
                                                                          configuration.identifier)
@@ -45,7 +50,8 @@ def write_scene_v4(directory: Path, configuration: SceneConfigurationV4, example
         np.savez_compressed(handle, **arrays)
     os.replace(temporary, archive_path)
 
-    write_voxel_grids(voxel_path, example.fields, grid)
+    if write_vti:
+        write_voxel_grids(voxel_path, example.fields, grid)
     write_json(request_path, build_site_request_v3(configuration, directory.name))
     write_json(descriptor_path, build_descriptor_v4(configuration, example, grid, parameters))
     return archive_path

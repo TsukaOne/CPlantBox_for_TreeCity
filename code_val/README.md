@@ -42,7 +42,8 @@ Read the code in this order; each package README carries its measured numbers an
    season cycle stays within the noise of the mean state).
 5. **`sandbox/sandbox_v4_*.py`** — profiles, seasons and walls on a frozen v3 scene.
 6. **`generator_v4/`** — the dataset: v3 scene k with a v4 soil and walls, schema v5 tensors,
-   contract `site_request_v3.schema.json`.
+   contract `site_request_v3.schema.json`. Unlike v3, no hydrotropism (the mean state has no
+   water gradient) and no `.vti` unless asked.
 7. **`compare_pilot_v4.py`** — the v4 pilot against v3, pair by pair.
 
 ---

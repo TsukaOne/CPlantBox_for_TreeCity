@@ -15,7 +15,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from generator.build import grow_once
+from generator_v4.build import grow_once_v4
 from generator_v4.environment import build_environment_v4
 from network.wall_layouts import NO_WALL, WallModule
 from sandbox_v4_scene import (GRID, build_sandbox_soil, build_tree_directory, grow_and_measure,
@@ -59,7 +59,7 @@ def run_profile_in_city(task: tuple) -> list:
         environment = build_environment_v4(configuration.street, configuration.leaks, soil_scene,
                                            NO_WALLS, stop_mpa, GRID)
         name = f"{recipe.identifier}_{city.name.lower()}_stop_{stop_mpa}"
-        probability, measure = grow_and_measure(configuration, environment, grow_once,
+        probability, measure = grow_and_measure(configuration, environment, grow_once_v4,
                                                 directory / name)
         write_fields(directory / f"{name}.vti", environment, probability)
         shares = measure_limiting_shares(environment.soil, environment.states[MEAN_STATE])

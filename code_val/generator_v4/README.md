@@ -13,10 +13,23 @@ docker run --rm -v "C:\Users\ValentinMarchand\Dev\CPlantBox_for_TreeCity:/worksp
     bash -c "python3 code_val/build_dataset_v4.py --tree my_Picea_abies.xml --pilot"
 ```
 
+The full dataset, detached, with a log (`pipefail` keeps the exit status of Python, not of `tee`):
+
+```bash
+docker run -d --name dataset_v4 -v "C:\Users\ValentinMarchand\Dev\CPlantBox_for_TreeCity:/workspaces/CPlantBox_for_TreeCity" \
+    -w /workspaces/CPlantBox_for_TreeCity cplantbox-image \
+    bash -c "set -o pipefail; mkdir -p code_val/dataset_v4 && python3 code_val/build_dataset_v4.py --tree my_Picea_abies.xml my_Quercus_robur.xml my_Aesculus_hippocastanum.xml 2>&1 | tee -a code_val/dataset_v4/build.log"
+```
+
+A scene that raises is logged as `FAILED, left unwritten` with its traceback and the run goes on;
+the command then exits with an error, and a rerun retries only the missing scenes.
+
 `--tree` is required, one or more files of `parameters/`, one folder per tree. `--pilot` writes
 identifiers 1–128 (eight blocks, the first scenes of the dataset) to `pilot_v4/<xml>/`; without it,
-`--scenes 2000` to `dataset_v4/<xml>/`. Resumable, refuses a design change or a modified XML in a
-directory.
+`--scenes 2000` to `dataset_v4/<xml>/`. Resumable, refuses a design change, a modified XML or
+other growth options in a directory. `--identifiers 28 37 90` builds only those scenes of the
+design (here three confined pits of the pilot); a later full run completes it. The ParaView `.vti` (85 % of a scene on disk, about 11 MB) is
+written by the pilot or with `--vti` only; the training channels are all in the `.npz`.
 
 ## Who does what
 
@@ -37,6 +50,14 @@ directory.
 - **Stop at 3.0 MPa**: the tree threshold. It raised the root mass by 20 to 55 % in the sandbox,
   so a paired v3/v4 difference mixes the soil and the threshold.
 - **Natural subsoils are undisturbed (IN)** except in P05, P07 and P08.
+- **Every tree is planted with a root ball** (`soil_v4/pit.py::ROOT_BALL`, since 22 October 2026):
+  scene 136 had a compacted FR pit at 3.1 MPa, its collar could not grow, and the empty root
+  system stopped the whole run. In such a pit the roots now fill the ball and leave it along the
+  trench backfills that cross the pit.
+- **No hydrotropism** (`build.py::GROWTH_OPTIONS`, since 22 October 2026). The mean state leaves
+  no water gradient (water scale 1 in every rootable voxel of the first 16 pilot scenes), so it
+  only replaced the XML tropisms of subtypes 5 and 6 by a dive. `f_sa` stays wired. Pilots built
+  before that date grew with it and are refused by `design.json`.
 - Profile, city, wall and module weights are uniform priors; everything drawn is in the
   descriptor, so the dataset can be reweighted without being regenerated.
 
@@ -92,8 +113,29 @@ IN–FR pit stays penetrable at 3.0 MPa, and in the mean state a drought only sh
   the host once a v4 dataset exists.
 - A wall that finds no room is dropped (`skipped` in the descriptor), so a scene can draw a wall
   kind and have no panel.
-- **A wall is a strong preference, not a guarantee** (accepted). CPlantBox confines by rejection
-  and gives up after about twenty tries; in the pilot, 4 confined pits out of 22 had a root
-  node 0.3 to 10.5 cm inside their wall, which surrounds the densest roots. Every intrusion is
-  recorded in the scene's diagnostics.
+- **Confined pit walls leaked.** CPlantBox confines by rejection and gives up after about twenty
+  tries; behind that, `f_se` was only scaled by the share of the voxel outside the wall, and a
+  15–25 cm pit wall seldom fills a 15 cm voxel (median `f_se` 0.10 inside). In the three-tree
+  pilot, roots entered the wall in 12/22 (Picea), 5/21 (Quercus) and 8/22 (Aesculus) confined
+  pits, up to about 12 cm. Since 22 October 2026 a voxel at least half in a wall is closed
+  (`soil_v4/scene.py::CLOSED_WALL_FRACTION`); the wall grows by at most half a voxel on the soil
+  side, a root can still enter the open part of a voxel the wall cuts, and an oblique thin wall
+  may leave corners open. On the three pilot scenes that leaked most (28, 37, 90, all three trees,
+  also without hydrotropism), the deepest intrusion fell from 5–12 cm to 0–7.2 cm, 4 of the 9
+  runs with none; the remaining ones stay within the half voxel the fix leaves open. Every
+  intrusion is recorded in the scene's diagnostics.
+- **The box is too shallow for Quercus and Aesculus** (306 cm): 83/126 oak and 45/127 horse
+  chestnut scenes reach 290 cm or more, and their deep roots fall outside the grid.
+- **The XML dynamics** (Marius' files): the oak taproot reaches 288 cm by 5–15 years and the oak
+  root mass barely follows age (∝ age^0.16); Aesculus and Picea saturate after 40 years; Aesculus
+  fine roots never die. Kept as they are for now.
+- **Drought acts only through soil hardness.** In the mean state the water-stress factor is below
+  1 in about 3 % of the scenes; water acts through the resistance (from the wettest to the driest
+  mean state, about ×1.5 in a loam) and the aeration (roots stop under a water table). Carbon,
+  fine-root mortality and proliferation in moist soil are not modelled, so the three FiLM water
+  values carry little signal and `frozen_winter` none. The dataset tells where roots can go given
+  the soil's structure and wetness, not what a drought does to a tree.
 - The full dataset v4 is not generated yet: it waits for Whalley's coefficients to be checked.
+
+These are detailed, with their numbers and options, in
+`documentation_TreeCity/faiblesses_dataset_v4.md` (6.4, 6.6, 6.8, 6.9, 6.10).

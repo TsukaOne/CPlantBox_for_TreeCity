@@ -1,9 +1,9 @@
 """The v4 soil of a scene: drawn once, then built into fields.
 
 The order matters. The static soil is built before the pit, the pit before the backfills (a
-trench crosses the pit like any other soil), the walls last, and Rosetta runs once on the
-result. The water comes last and is redone for every water state: sealing, runoff into the pit,
-then the leaks.
+trench crosses the pit like any other soil), the root ball after them (no trench runs through a
+planted tree's collar), the walls last, and Rosetta runs once on the result. The water comes
+last and is redone for every water state: sealing, runoff into the pit, then the leaks.
 """
 from dataclasses import dataclass, replace
 
@@ -19,13 +19,15 @@ from soil_v4.column import StaticSoil, convert_layer_to_soil
 from soil_v4.field import blend_patches, build_static_field
 from soil_v4.fills import Backfills, apply_fills, draw_backfills
 from soil_v4.mosaic import ProfileMosaic
-from soil_v4.pit import PIT_MATERIALS, PlantingPit, apply_pit, build_pit_mask, draw_planting_pit
+from soil_v4.pit import (PIT_MATERIALS, ROOT_BALL, PlantingPit, apply_pit, build_pit_mask,
+                         build_root_ball_mask, draw_planting_pit)
 from soil_v4.retention import estimate_retention
 from soil_v4.state import SoilState, compute_soil_state
 from soil_v4.water import (WaterRegime, apply_leaks, apply_runoff, build_available_water,
                            build_saturated_fraction, draw_water_regime)
 
 SEED_LIMIT = 2 ** 31
+CLOSED_WALL_FRACTION = 0.5
 
 
 @dataclass(frozen=True)
@@ -65,8 +67,12 @@ def build_scene_soil(scene: SoilScene, network: NetworkLayers, wall_panels: tupl
     pit_mask = build_pit_mask(scene.pit, scene.mosaic, weights, grid)
     field = apply_pit(field, convert_layer_to_soil(scene.pit.substrate), pit_mask)
     field = apply_fills(field, network.shapes.fills, network.coverages, scene.backfills)
+    field = apply_pit(field, convert_layer_to_soil(ROOT_BALL), build_root_ball_mask(pit_mask, grid))
     wall_fraction = measure_wall_fraction(wall_panels, grid)
-    field = replace(field, rootable_fraction=field.rootable_fraction * (1.0 - wall_fraction))
+    # A 15-25 cm pit wall seldom fills a voxel: scaling alone let the roots that slip past
+    # CPlantBox's rejection keep growing inside it.
+    open_fraction = np.where(wall_fraction >= CLOSED_WALL_FRACTION, 0.0, 1.0 - wall_fraction)
+    field = replace(field, rootable_fraction=field.rootable_fraction * open_fraction)
 
     sealed = np.array([patch.profile.sealed_surface for patch in scene.mosaic.patches], float)
     outside_pit = grid.measure_trunk_distances_cm() >= scene.pit.radius_cm

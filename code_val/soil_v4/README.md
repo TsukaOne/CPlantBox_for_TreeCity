@@ -43,8 +43,13 @@ docker run --rm -v "C:\Users\ValentinMarchand\Dev\CPlantBox_for_TreeCity:/worksp
 ## Order of a scene
 
 1. Static soil: profile columns, blended by patch weights, noised.
-2. Planting pit, then network backfills (a trench crosses the pit like any soil), then walls
-   (`network/wall_layouts.py`): the share of a voxel a wall fills is no longer rootable.
+2. Planting pit, then network backfills (a trench crosses the pit like any soil), then the root
+   ball, then walls (`network/wall_layouts.py`): the share of a voxel a wall fills is no longer
+   rootable, and a voxel at least half in a wall is closed (`CLOSED_WALL_FRACTION`).
+   The root ball (`pit.py::ROOT_BALL`) is the same for every scene: 35 cm of radius, 45 cm deep,
+   M05 at the middle of its ranges in class LO (1.21 g/cm³, about 0.7 MPa). Without it a dense FR
+   pit (above 3.0 MPa) left the collar no way out and the tree grew no root at all. The
+   application must add it too.
 3. Rosetta once on the result.
 4. Per water state: city season × year × sealing (outside the pit), runoff into the pit, leaks,
    water table; then θ, ψ, resistance, air and the factors.
