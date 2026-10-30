@@ -3,6 +3,7 @@
 import time
 from collections import defaultdict
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -63,6 +64,16 @@ def thicken_vtp_file(path: Path, parameters: SecondaryGrowthParameters) -> None:
     write_polydata(path, polydata, arrays)
 
 
+def measure_plant(plant, grid: VoxelGrid, parameters: SecondaryGrowthParameters) -> tuple:
+    polydata = extract_polydata(plant)
+    radii, _ = build_final_radii(polydata, parameters)
+    segments = build_polysegments(polydata, radii)
+
+    occupancies, outside = stamp_classes(sample_segments(select_structural(segments)), grid)
+    return (occupancies, accumulate_volume(sample_segments(segments), grid),
+            polydata, radii, segments, outside)
+
+
 def grow_once(configuration: SceneConfiguration, environment, grid: VoxelGrid, seed: int,
               parameters: SecondaryGrowthParameters, vtp_path,
               options: GrowthOptions = GrowthOptions(), raw_vtp: bool = False) -> tuple:
@@ -72,13 +83,11 @@ def grow_once(configuration: SceneConfiguration, environment, grid: VoxelGrid, s
                        water_lookup=environment.water_lookup if options.use_hydrotropism else None)
     if vtp_path is not None and not raw_vtp:
         thicken_vtp_file(Path(vtp_path), parameters)
-    polydata = extract_polydata(plant)
-    radii, _ = build_final_radii(polydata, parameters)
-    segments = build_polysegments(polydata, radii)
+    return measure_plant(plant, grid, parameters)
 
-    occupancies, outside = stamp_classes(sample_segments(select_structural(segments)), grid)
-    return (occupancies, accumulate_volume(sample_segments(segments), grid),
-            polydata, radii, segments, outside)
+
+def find_lumen_intrusions(environment, segments: np.ndarray) -> dict:
+    return find_intrusions(segments, environment.lumens)
 
 
 def build_fields(environment, hit_counts: dict, runs: int) -> dict:
@@ -98,23 +107,23 @@ def build_fields(environment, hit_counts: dict, runs: int) -> dict:
             "patches": environment.patch_labels}
 
 
-def build_scene(configuration: SceneConfiguration, grid: VoxelGrid,
-                parameters: Optional[SecondaryGrowthParameters] = None,
-                vtp_directory: Path = None, options: GrowthOptions = GrowthOptions(),
-                vtp_runs: int = VTP_RUNS_PER_SCENE, observer: Optional[Callable] = None,
-                raw_vtp: bool = False) -> Example:
-    """parameters: secondary growth, by default the one of the species of the tree.
+@dataclass
+class Ensemble:
+    hit_counts: dict
+    packed_runs: dict
+    root_volume: np.ndarray
+    polylines: dict
+    diagnostics: dict
+
+
+def grow_ensemble(configuration, environment, grid: VoxelGrid,
+                  parameters: SecondaryGrowthParameters, vtp_directory: Path,
+                  grow_run=grow_once, find_run_intrusions=find_lumen_intrusions,
+                  vtp_runs: int = VTP_RUNS_PER_SCENE, observer: Optional[Callable] = None) -> Ensemble:
+    """grow_run and find_run_intrusions let v4 grow through the seasons and check its walls.
     vtp_runs: how many runs write their .vtp, when vtp_directory is given.
-    raw_vtp: leave the .vtp as CPlantBox wrote it (primary radii); by default it also carries the
-    secondary-growth radii (radius_secondary, ...). The rest of the scene always uses them.
     observer(run_index, polydata, radii, segments): called after each run, to measure the roots
     without a second loop (run_index starts at 0)."""
-    if parameters is None:
-        parameters = secondary_growth_for(configuration.tree.species)
-    started = time.perf_counter()
-    environment = build_environment(configuration, grid)
-    soil_seconds = time.perf_counter() - started
-
     stacks, volumes = defaultdict(list), []
     segment_counts, depths, intrusions, outside = [], [], {}, 0
     polylines = {}
@@ -123,8 +132,8 @@ def build_scene(configuration: SceneConfiguration, grid: VoxelGrid,
     for run, seed in enumerate(configuration.root_seeds, start=1):
         path = None if vtp_directory is None or run > vtp_runs else \
             vtp_directory / f"scene_{configuration.identifier:05d}_run_{run:02d}.vtp"
-        occupancies, volume, polydata, radii, segments, missed = grow_once(
-            configuration, environment, grid, seed, parameters, path, options, raw_vtp)
+        occupancies, volume, polydata, radii, segments, missed = grow_run(
+            configuration, environment, grid, seed, parameters, path)
         if observer is not None:
             observer(run - 1, polydata, radii, segments)
 
@@ -134,8 +143,8 @@ def build_scene(configuration: SceneConfiguration, grid: VoxelGrid,
         segment_counts.append(len(segments.starts))
         depths.append(measure_maximum_depth_cm(segments.starts, segments.ends))
         outside += missed
-        for name, depth in find_intrusions(np.hstack([segments.starts, segments.ends]),
-                                           environment.lumens).items():
+        for name, depth in find_run_intrusions(environment,
+                                               np.hstack([segments.starts, segments.ends])).items():
             intrusions[name] = max(intrusions.get(name, 0.0), depth)
         if run == 1:
             polylines = {"points": polydata.points.astype(np.float32),
@@ -147,24 +156,12 @@ def build_scene(configuration: SceneConfiguration, grid: VoxelGrid,
     runs = len(configuration.root_seeds)
     hit_counts = {name: np.sum(stack, axis=0, dtype=np.uint16) for name, stack in stacks.items()}
     target = hit_counts["radius"] / runs
-    prior = build_prior(configuration.tree, grid)
-
-    return Example(
-        inputs=build_input_tensor(environment, prior, grid),
-        film=build_film_vector(configuration),
-        prior_v2=build_prior_v2(prior, environment.growth_scale, environment.pipe_fraction,
-                                environment.leak_plume, LEAK_PRIOR_BOOST),
+    return Ensemble(
         hit_counts=hit_counts,
         packed_runs={name: np.packbits(np.stack(stacks[name])) for name in PACKED_OCCUPANCIES},
         root_volume=np.mean(volumes, axis=0).astype(np.float32),
         polylines=polylines,
-        fields=build_fields(environment, hit_counts, runs),
-        diagnostics={"tree_xml": configuration.tree_xml,
-                     "growth_options": {"angle_scale": options.use_angle_scale,
-                                        "hydrotropism": options.use_hydrotropism},
-                     "runtime_seconds": round(time.perf_counter() - started, 1),
-                     "soil_seconds": round(soil_seconds, 1),
-                     "growth_seconds": round(growth_seconds, 1),
+        diagnostics={"growth_seconds": round(growth_seconds, 1),
                      "segments_mean": float(np.mean(segment_counts)),
                      "segments_std": float(np.std(segment_counts)),
                      "max_depth_cm_mean": float(np.mean(depths)),
@@ -176,4 +173,43 @@ def build_scene(configuration: SceneConfiguration, grid: VoxelGrid,
                      "support_voxel_fraction": float((target > 0).mean()),
                      "samples_outside_grid": int(outside),
                      "intrusions": {name: float(depth) for name, depth in intrusions.items()}},
+    )
+
+
+def build_scene(configuration: SceneConfiguration, grid: VoxelGrid,
+                parameters: Optional[SecondaryGrowthParameters] = None,
+                vtp_directory: Path = None, options: GrowthOptions = GrowthOptions(),
+                vtp_runs: int = VTP_RUNS_PER_SCENE, observer: Optional[Callable] = None,
+                raw_vtp: bool = False) -> Example:
+    """parameters: secondary growth, by default the one of the species of the tree.
+    raw_vtp: leave the .vtp as CPlantBox wrote it (primary radii); by default it also carries the
+    secondary-growth radii (radius_secondary, ...). The rest of the scene always uses them.
+    vtp_runs and observer: see grow_ensemble."""
+    if parameters is None:
+        parameters = secondary_growth_for(configuration.tree.species)
+    started = time.perf_counter()
+    environment = build_environment(configuration, grid)
+    soil_seconds = time.perf_counter() - started
+
+    grow_run = partial(grow_once, options=options, raw_vtp=raw_vtp)
+    ensemble = grow_ensemble(configuration, environment, grid, parameters, vtp_directory, grow_run,
+                             vtp_runs=vtp_runs, observer=observer)
+    prior = build_prior(configuration.tree, grid)
+
+    return Example(
+        inputs=build_input_tensor(environment, prior, grid),
+        film=build_film_vector(configuration),
+        prior_v2=build_prior_v2(prior, environment.growth_scale, environment.pipe_fraction,
+                                environment.leak_plume, LEAK_PRIOR_BOOST),
+        hit_counts=ensemble.hit_counts,
+        packed_runs=ensemble.packed_runs,
+        root_volume=ensemble.root_volume,
+        polylines=ensemble.polylines,
+        fields=build_fields(environment, ensemble.hit_counts, len(configuration.root_seeds)),
+        diagnostics={"tree_xml": configuration.tree_xml,
+                     "growth_options": {"angle_scale": options.use_angle_scale,
+                                        "hydrotropism": options.use_hydrotropism},
+                     "runtime_seconds": round(time.perf_counter() - started, 1),
+                     "soil_seconds": round(soil_seconds, 1),
+                     **ensemble.diagnostics},
     )

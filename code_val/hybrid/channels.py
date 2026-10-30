@@ -16,6 +16,8 @@ GRADIENT_LENGTH_CM = 100.0
 ADDED_CHANNEL_NAMES = ("bengough", "water_gradient_down", "water_gradient_row",
                        "water_gradient_column")
 BASELINE_ONLY_CHANNEL_NAMES = ("depth", "growth_scale")
+# f_se as CPlantBox read it; v3 archives carry only the first two factors.
+GROWTH_FACTOR_CHANNEL_NAMES = ("bengough", "water_scale", "aeration_scale", "rootable")
 
 
 def build_water_gradients(water_scale: np.ndarray, grid: VoxelGrid) -> np.ndarray:
@@ -36,3 +38,9 @@ def select_hybrid_channel_names(channel_names: tuple) -> tuple:
 
 def read_channel(inputs: np.ndarray, channel_names, name: str) -> np.ndarray:
     return inputs[list(channel_names).index(name)].astype(np.float32)
+
+
+def compute_growth_scale(inputs: np.ndarray, channel_names) -> np.ndarray:
+    factors = [read_channel(inputs, channel_names, name)
+               for name in GROWTH_FACTOR_CHANNEL_NAMES if name in channel_names]
+    return np.prod(factors, axis=0)

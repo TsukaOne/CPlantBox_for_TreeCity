@@ -22,6 +22,7 @@ from tree.growth import build_soil_grid, grow_root_system
 
 SCENARIO_ARCHETYPES = (5, 2)  # sandy_dry: l'eau est limitante. medium_uniform: elle ne l'est pas.
 SCENARIO_AGE_YEARS = 120.0
+TREE_XML = Path("Picea_Abies_combined_v6.xml")  # l'arbre des chiffres du README
 SCENARIO_SEED = 7
 SCENARIO_RUNS = 24
 BOOTSTRAP_DRAWS = 400
@@ -52,7 +53,7 @@ def count_spot_occupancy(geometry, elongation_grid, water_grid, grid: VoxelGrid,
     counts = {spot.name: [] for spot in WET_SPOTS}
     for run in range(SCENARIO_RUNS):
         roots = grow_root_system(geometry, elongation_grid, SCENARIO_SEED + run * SEED_STRIDE,
-                                 SCENARIO_AGE_YEARS, vtp_path if run == 0 else None,
+                                 SCENARIO_AGE_YEARS, TREE_XML, vtp_path if run == 0 else None,
                                  water_lookup=water_grid)
         occupancy = voxelize_structural_roots(roots.segments, roots.subtypes, grid).grid
         for spot in WET_SPOTS:

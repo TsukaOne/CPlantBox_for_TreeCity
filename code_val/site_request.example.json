@@ -1,0 +1,158 @@
+{
+  "schema_version": "site_request/v2",
+  "request_id": "bxl-2026-09-24-epicea-rue-des-palais-0147",
+  "created_at": "2026-09-24T09:32:11Z",
+
+  "frame": {
+    "crs": "EPSG:31370",
+    "collar_easting_m": 148732.4,
+    "collar_northing_m": 170115.8,
+    "collar_elevation_m": 42.7,
+    "azimuth_deg": 112.0
+  },
+
+  "tree": {
+    "species": "picea_abies",
+    "age_years": 62.0,
+    "dbh_cm": 41.5,
+    "height_m": 18.4,
+    "crown_depth_m": 10.2
+  },
+
+  "pit": {
+    "radius_cm": 75.0,
+    "depth_cm": 85.0,
+    "substrate": {
+      "sand_fraction": 0.62,
+      "clay_fraction": 0.11,
+      "bulk_density_g_cm3": 1.15,
+      "moisture_m3_m3": 0.27,
+      "penetrometer_mpa": 1.05
+    }
+  },
+
+  "soil": {
+    "default_profile": {
+      "topsoil_depth_cm": 38.0,
+      "topsoil": {
+        "sand_fraction": 0.45,
+        "clay_fraction": 0.21,
+        "bulk_density_g_cm3": 1.43,
+        "moisture_m3_m3": 0.24,
+        "penetrometer_mpa": null
+      },
+      "subsoil": {
+        "sand_fraction": 0.29,
+        "clay_fraction": 0.24,
+        "bulk_density_g_cm3": 1.92,
+        "moisture_m3_m3": 0.13,
+        "penetrometer_mpa": 3.8
+      }
+    },
+    "patches": [
+      {
+        "center_row_cm": -120.0,
+        "center_column_cm": -35.0,
+        "profile": {
+          "topsoil_depth_cm": 45.0,
+          "topsoil": {
+            "sand_fraction": 0.8,
+            "clay_fraction": 0.06,
+            "bulk_density_g_cm3": 1.55,
+            "moisture_m3_m3": 0.11,
+            "penetrometer_mpa": null
+          },
+          "subsoil": {
+            "sand_fraction": 0.8,
+            "clay_fraction": 0.06,
+            "bulk_density_g_cm3": 1.55,
+            "moisture_m3_m3": 0.11,
+            "penetrometer_mpa": null
+          }
+        }
+      }
+    ],
+    "blending": {
+      "transition_length_cm": 20.0,
+      "boundary_wander_cm": 120.0,
+      "boundary_wander_length_cm": 150.0,
+      "boundary_seed": null
+    }
+  },
+
+  "street": {
+    "bearing_deg": 6.5,
+    "curb_offset_cm": 210.0,
+    "utilities": [
+      {
+        "name": "sewer",
+        "role": "corridor",
+        "parent": "",
+        "nodes_cm": [
+          [258.0, -1480.0, -195.0],
+          [301.0, 1620.0, -201.0]
+        ],
+        "radius_cm": 22.5,
+        "trench_half_width_cm": 58.0,
+        "bedding_depth_cm": 12.0,
+        "surround_cover_cm": 25.0,
+        "joint_spacing_cm": 0.0,
+        "leakage_status": "none"
+      },
+      {
+        "name": "water",
+        "role": "corridor",
+        "parent": "",
+        "nodes_cm": [
+          [172.0, -1510.0, -98.0],
+          [214.0, 1590.0, -102.0]
+        ],
+        "radius_cm": 7.5,
+        "trench_half_width_cm": 38.0,
+        "bedding_depth_cm": 11.0,
+        "surround_cover_cm": 20.0,
+        "joint_spacing_cm": 250.0,
+        "leakage_status": "minor"
+      },
+      {
+        "name": "water_connection",
+        "role": "connection",
+        "parent": "water",
+        "nodes_cm": [
+          [190.0, -40.0, -100.0],
+          [-320.0, -40.0, -88.0]
+        ],
+        "radius_cm": 3.5,
+        "trench_half_width_cm": 34.0,
+        "bedding_depth_cm": 10.0,
+        "surround_cover_cm": 16.0,
+        "joint_spacing_cm": 0.0,
+        "leakage_status": "none"
+      }
+    ]
+  },
+
+  "leaks": null,
+
+  "provenance": {
+    "tree.species": "cityjson",
+    "tree.age_years": "cityjson",
+    "tree.dbh_cm": "cityjson",
+    "tree.height_m": "cityjson",
+    "tree.crown_depth_m": "cityjson",
+    "frame.azimuth_deg": "osm",
+    "street.bearing_deg": "osm",
+    "street.curb_offset_cm": "osm",
+    "street.utilities": "osm",
+    "pit.radius_cm": "form",
+    "pit.depth_cm": "form",
+    "pit.substrate": "form",
+    "soil.default_profile.topsoil": "form",
+    "soil.default_profile.subsoil": "form",
+    "soil.default_profile.topsoil.penetrometer_mpa": "pedotransfer",
+    "soil.default_profile.subsoil.bulk_density_g_cm3": "form",
+    "soil.patches": "soil_map",
+    "soil.blending": "default",
+    "leaks": "default"
+  }
+}

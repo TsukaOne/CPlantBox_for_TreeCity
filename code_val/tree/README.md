@@ -1,7 +1,8 @@
 # tree — the tree, and the CPlantBox call itself
 
-Three files. One draws what the tree *is*, one lists the species of the project, the last is the
-only place in the repository that actually runs CPlantBox.
+One file draws what the tree *is*, one lists the species of the project, and `growth.py` is the
+only place in the repository that actually runs CPlantBox; `seasons.py` reuses it to swap the soil
+grids every season (v4).
 
 ## Step by step
 
@@ -29,6 +30,8 @@ only place in the repository that actually runs CPlantBox.
 | `attributes.py` | species, age, and the allometries |
 | `species.py` | the registry: one record per species (architecture, XML prefixes, depth decay of the prior, secondary growth), the species and architecture slots of the FiLM vector, `identify_species`, `hash_xml`, `PARAMETERS_DIRECTORY` |
 | `growth.py` | the soil lookups, the three CPlantBox hooks, the simulation loop, and the segment extraction |
+| `seasons.py` | the v4 grower that swaps the `f_se` and `f_sa` grids every season |
+| `check_seasons.py` | CLI: the seasonal grower against `grow_plant` (`--tree`) |
 
 ## The traps, all of them in `growth.py`
 
@@ -88,3 +91,32 @@ only place in the repository that actually runs CPlantBox.
   plate, no taproot" stance is in tension with Puhe (2003), *Forest Ecology and Management* 175,
   253–273. Subtype 7 was re-enabled at 0.15 (it had been zeroed to protect pipes, which capped
   rooting at 137 cm of a 306 cm grid); with it, maximum depth reaches 254 cm.
+
+## Seasons (v4)
+
+`seasons.py::grow_plant_through_seasons` grows the same plant as `grow_plant`, but wires the
+season's `f_se` and `f_sa` grids on the root parameters every time a 10-day step enters a new
+season (spring first, 91.25 days each). CPlantBox reads `f_se` at every `simulate()` and `f_sa`
+at the birth of each lateral, through those parameters, so the swap takes effect at the next step.
+`growth.py::create_plant` is shared by both growers.
+
+- **The hydrotropism cannot follow the seasons.** It keeps the lookup it got at `initialize()`
+  (a weak pointer), so it stays on the mean water state.
+- **Never call `plant.copy()` once the grids are wired**: `EquidistantGrid3D::copy` copies raw
+  pointers that both copies would free.
+- **A lost season is lost, not caught up.** CPlantBox recomputes a root's age from its length
+  (`calcAge(length)`), so a root stopped for a season resumes where it stopped.
+
+`check_seasons.py --tree Picea_Abies_combined_v6.xml`, scene 1001, 10 seeds:
+
+| | 5 years | 40 years |
+|---|---|---|
+| Four identical seasons vs `grow_plant` | — | identical segments, 10/10 seeds |
+| Winter stopped (`f_se` = 0) | 0.65 of the root length | 0.94 |
+| Three seasons stopped | 0.14 | 0.75 |
+| All seasons stopped | 0 | 0 |
+| Time per plant, `grow_plant` / seasonal | — | 0.07 / 0.09 s |
+
+A dead season costs a young tree a third of its roots, an old one almost nothing: the long roots
+end up at their `lmax` either way. The question of recalibrating growth rates for a frozen winter
+therefore matters for young trees mostly.

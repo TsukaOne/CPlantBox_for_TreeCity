@@ -18,23 +18,18 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from generator.network_layers import NetworkLayers, build_network_layers
 from generator.scene import SceneConfiguration
 from grid import VoxelGrid
-from network.coverage import build_coverage, build_label_field, measure_cell_axes_cm
-from network.leaks import build_plume_ramp
-from network.primitives import measure_signed_distance
-from network.shapes import build_scene_shapes
 from network.walls import build_street_geometry
 from soil.field import build_mosaic_field, build_soil_field
-from soil.fill import apply_fills, measure_natural_share
+from soil.fill import apply_fills
 from soil.growth_response import (apply_bengough, apply_water_stress, compute_angle_scale,
                                   compute_growth_scale)
 from soil.hydraulics import build_water_fields
 from soil.leak import apply_leaks
 from soil.mosaic import build_patch_weights
 from soil.pit import apply_planting_pit, build_pit_mask
-
-CLEARANCE_CLIP_CM = 300.0
 
 
 @dataclass
@@ -61,55 +56,28 @@ class SceneEnvironment:
     geometry: object
 
 
-def measure_cell_points(grid: VoxelGrid) -> np.ndarray:
-    depths, rows, columns = measure_cell_axes_cm(grid)
-    depth, row, column = np.meshgrid(depths, rows, columns, indexing="ij")
-    return np.stack([column.ravel(), row.ravel(), depth.ravel()], axis=1)
-
-
-def measure_pipe_clearance_cm(lumens: tuple, grid: VoxelGrid) -> np.ndarray:
-    if not lumens:
-        return np.full(grid.shape, CLEARANCE_CLIP_CM, np.float32)
-    points = measure_cell_points(grid)
-    distances = np.min([measure_signed_distance(lumen, points) for lumen in lumens], axis=0)
-    return np.clip(distances, 0.0, CLEARANCE_CLIP_CM).reshape(grid.shape).astype(np.float32)
-
-
-def build_soil(configuration: SceneConfiguration, grid: VoxelGrid, shapes, coverages, weights):
+def build_soil(configuration: SceneConfiguration, grid: VoxelGrid, network: NetworkLayers, weights):
     rng = np.random.default_rng(configuration.soil_noise_seed)
     ambient = build_mosaic_field(configuration.soil, weights, grid, rng)
     pit = build_soil_field(configuration.pit_soil, grid, rng)
     field = apply_planting_pit(ambient, pit, build_pit_mask(configuration.pit_radius_cm,
                                                             configuration.pit_depth_cm, grid))
 
-    field = apply_fills(field, tuple(horizon for _, horizon in shapes.fills), coverages)
-    sources = tuple((build_plume_ramp(leak, grid), leak.available_water_fraction)
-                    for leak in configuration.leaks)
-    natural_share = measure_natural_share(coverages, grid.shape)
-    return apply_leaks(field, sources, natural_share), sources, natural_share
+    field = apply_fills(field, tuple(horizon for _, horizon in network.shapes.fills), network.coverages)
+    return apply_leaks(field, network.sources, network.natural_share)
 
 
 def build_environment(configuration: SceneConfiguration, grid: VoxelGrid) -> SceneEnvironment:
     from tree.growth import build_interpolated_soil_grid, build_soil_grid
 
-    shapes = build_scene_shapes(configuration.street, grid)
-    coverages = tuple(build_coverage(shape, grid) for shape, _ in shapes.fills)
+    network = build_network_layers(configuration.street, configuration.leaks, grid)
     weights = build_patch_weights(configuration.soil, grid)
-    field, sources, natural_share = build_soil(configuration, grid, shapes, coverages, weights)
+    field = build_soil(configuration, grid, network, weights)
 
     water = build_water_fields(field)
     growth_scale = compute_growth_scale(field.penetrometer_mpa, field.available_water_fraction)
     water_scale = apply_water_stress(field.available_water_fraction).astype(np.float32)
     angle_scale = compute_angle_scale(field.penetrometer_mpa)
-
-    utility_count = len(configuration.street.utilities)
-    pipe_fraction = np.clip(np.sum(coverages[:utility_count], axis=0), 0.0, 1.0) if coverages \
-        else np.zeros(grid.shape, np.float32)
-    surround_fraction = np.clip(np.sum(coverages[utility_count:2 * utility_count], axis=0)
-                                - pipe_fraction, 0.0, 1.0) if coverages \
-        else np.zeros(grid.shape, np.float32)
-    plume = np.max([ramp for ramp, _ in sources], axis=0) if sources \
-        else np.zeros(grid.shape, np.float32)
 
     return SceneEnvironment(
         field=field,
@@ -119,17 +87,17 @@ def build_environment(configuration: SceneConfiguration, grid: VoxelGrid) -> Sce
         water_scale=water_scale,
         bengough=apply_bengough(field.penetrometer_mpa).astype(np.float32),
         angle_scale=angle_scale,
-        pipe_fraction=pipe_fraction.astype(np.float32),
-        surround_fraction=surround_fraction.astype(np.float32),
-        backfill_fraction=(1.0 - natural_share).astype(np.float32),
-        pipe_clearance_cm=measure_pipe_clearance_cm(shapes.lumens, grid),
-        leak_plume=plume.astype(np.float32),
+        pipe_fraction=network.pipe_fraction,
+        surround_fraction=network.surround_fraction,
+        backfill_fraction=network.backfill_fraction,
+        pipe_clearance_cm=network.pipe_clearance_cm,
+        leak_plume=network.leak_plume,
         pit_mask=build_pit_mask(configuration.pit_radius_cm, configuration.pit_depth_cm, grid),
-        pipe_labels=build_label_field(shapes.lumens, grid),
+        pipe_labels=network.pipe_labels,
         patch_labels=np.broadcast_to(weights.argmax(axis=0) + 1.0, grid.shape).astype(np.float32),
-        lumens=shapes.lumens,
+        lumens=network.shapes.lumens,
         elongation_grid=build_soil_grid(growth_scale, grid),
         angle_grid=build_soil_grid(angle_scale, grid),
         water_lookup=build_interpolated_soil_grid(water_scale, grid),
-        geometry=build_street_geometry(shapes.lumens, grid),
+        geometry=build_street_geometry(network.shapes.lumens, grid),
     )

@@ -1,0 +1,220 @@
+{
+  "tree": {
+    "species": "picea_abies",
+    "age_years": 106.90363040770463,
+    "dbh_cm": 68.72614602375926,
+    "height_m": 24.044299169977425,
+    "crown_depth_m": 14.426579501986454
+  },
+
+  "pit": {
+    "radius_cm": 139.79768151607897,
+    "depth_cm": 68.0665234713812,
+    "substrate": {
+      "sand_fraction": 0.6611520704885656,
+      "clay_fraction": 0.12781025902399226,
+      "bulk_density_g_cm3": 1.2203218956254966,
+      "moisture_m3_m3": 0.28302442175192066,
+      "penetrometer_mpa": 0.9164729426250032
+    }
+  },
+
+  "soil": {
+    "default_profile": {
+      "topsoil_depth_cm": 41.339858934919846,
+      "topsoil": {
+        "sand_fraction": 0.8358860945268476,
+        "clay_fraction": 0.05239190930009494,
+        "bulk_density_g_cm3": 1.6492056414837353,
+        "moisture_m3_m3": 0.0837921457305818,
+        "penetrometer_mpa": 1.1015699308355922
+      },
+      "subsoil": {
+        "sand_fraction": 0.16687308121339914,
+        "clay_fraction": 0.43490454973643866,
+        "bulk_density_g_cm3": 1.3968019663285298,
+        "moisture_m3_m3": 0.37285841929660557,
+        "penetrometer_mpa": 2.226889916000368
+      }
+    },
+    "default_center_row_cm": -42.293634784866995,
+    "default_center_column_cm": 80.12537795353998,
+    "patches": [
+      {
+        "center_row_cm": 430.30105360118637,
+        "center_column_cm": 455.26152178767575,
+        "profile": {
+          "topsoil_depth_cm": 47.64431429351257,
+          "topsoil": {
+            "sand_fraction": 0.26888213745828693,
+            "clay_fraction": 0.2840052758432413,
+            "bulk_density_g_cm3": 1.7162804715096474,
+            "moisture_m3_m3": 0.20725756665720865,
+            "penetrometer_mpa": 4.3608789079891555
+          },
+          "subsoil": {
+            "sand_fraction": 0.26888213745828693,
+            "clay_fraction": 0.2840052758432413,
+            "bulk_density_g_cm3": 1.7162804715096474,
+            "moisture_m3_m3": 0.20725756665720865,
+            "penetrometer_mpa": 4.3608789079891555
+          }
+        }
+      },
+      {
+        "center_row_cm": -126.32532432088442,
+        "center_column_cm": -273.60550504378386,
+        "profile": {
+          "topsoil_depth_cm": 48.19680266205323,
+          "topsoil": {
+            "sand_fraction": 0.34215909145717505,
+            "clay_fraction": 0.21868237041888627,
+            "bulk_density_g_cm3": 1.2694316976248743,
+            "moisture_m3_m3": 0.33560974069450683,
+            "penetrometer_mpa": 0.7555926059653375
+          },
+          "subsoil": {
+            "sand_fraction": 0.34215909145717505,
+            "clay_fraction": 0.21868237041888627,
+            "bulk_density_g_cm3": 1.2694316976248743,
+            "moisture_m3_m3": 0.33560974069450683,
+            "penetrometer_mpa": 0.7555926059653375
+          }
+        }
+      },
+      {
+        "center_row_cm": -185.72546170234943,
+        "center_column_cm": 312.5183333487794,
+        "profile": {
+          "topsoil_depth_cm": 37.118781887667154,
+          "topsoil": {
+            "sand_fraction": 0.45422291993168473,
+            "clay_fraction": 0.1915204874146668,
+            "bulk_density_g_cm3": 1.4874563129387126,
+            "moisture_m3_m3": 0.2407189398923596,
+            "penetrometer_mpa": 1.5951660893125146
+          },
+          "subsoil": {
+            "sand_fraction": 0.45422291993168473,
+            "clay_fraction": 0.1915204874146668,
+            "bulk_density_g_cm3": 1.4874563129387126,
+            "moisture_m3_m3": 0.2407189398923596,
+            "penetrometer_mpa": 1.5951660893125146
+          }
+        }
+      }
+    ],
+    "blending": {
+      "transition_length_cm": 62.75174966948717,
+      "boundary_wander_cm": 120.0,
+      "boundary_wander_length_cm": 150.0,
+      "boundary_seed": 591806054
+    }
+  },
+
+  "street": {
+    "utilities": [
+      {
+        "name": "lighting",
+        "nodes_cm": [
+          [-118.49791611439449, -1922.5249299763666, -56.16916877633646],
+          [423.5924979866495, 1879.019227723207, -56.16916877633646]
+        ],
+        "radius_cm": 3.4959628971861485,
+        "trench_half_width_cm": 33.495962897186146,
+        "bedding_depth_cm": 14.886158121153006,
+        "surround_cover_cm": 29.951918797116633,
+        "joint_spacing_cm": 0.0,
+        "leakage_status": "none"
+      },
+      {
+        "name": "gas",
+        "nodes_cm": [
+          [-246.63654808058914, -1904.1146057284734, -96.18832687157385],
+          [228.66300826978033, 1906.3565372843093, -96.18832687157385]
+        ],
+        "radius_cm": 4.9649072832753625,
+        "trench_half_width_cm": 34.964907283275366,
+        "bedding_depth_cm": 12.060569064086192,
+        "surround_cover_cm": 23.93709236550653,
+        "joint_spacing_cm": 0.0,
+        "leakage_status": "none"
+      },
+      {
+        "name": "electricity",
+        "nodes_cm": [
+          [-149.73059372613824, -1916.004201800945, -78.46082391579685],
+          [316.9027777418588, 1895.537913489454, -78.46082391579685]
+        ],
+        "radius_cm": 7.7573946756030026,
+        "trench_half_width_cm": 37.757394675603,
+        "bedding_depth_cm": 12.980772107120629,
+        "surround_cover_cm": 22.06685201897338,
+        "joint_spacing_cm": 0.0,
+        "leakage_status": "none"
+      },
+      {
+        "name": "heating",
+        "nodes_cm": [
+          [-412.9756764032538, -1878.9873604221007, -118.86029513928901],
+          [-114.84103745744233, 51.91696929706859, -118.86029513928901],
+          [-1136.3534559340421, 1677.6206258403172, -118.86029513928901]
+        ],
+        "radius_cm": 18.82924095106167,
+        "trench_half_width_cm": 48.82924095106167,
+        "bedding_depth_cm": 13.93197509768924,
+        "surround_cover_cm": 19.89225430031209,
+        "joint_spacing_cm": 0.0,
+        "leakage_status": "none"
+      },
+      {
+        "name": "telecom",
+        "nodes_cm": [
+          [-142.2454188134499, -1917.2615220250198, -54.83440590409773],
+          [337.93322013537704, 1892.597855261398, -54.83440590409773]
+        ],
+        "radius_cm": 6.383928243524972,
+        "trench_half_width_cm": 36.38392824352497,
+        "bedding_depth_cm": 14.617227475232662,
+        "surround_cover_cm": 21.35312975230842,
+        "joint_spacing_cm": 0.0,
+        "leakage_status": "none"
+      },
+      {
+        "name": "sewer",
+        "nodes_cm": [
+          [65.62854559026084, -1945.8495834576663, -300.0381953719392],
+          [574.3961942411837, 1860.2974814474999, -300.0381953719392]
+        ],
+        "radius_cm": 30.18622629867097,
+        "trench_half_width_cm": 60.186226298670974,
+        "bedding_depth_cm": 12.74203339048455,
+        "surround_cover_cm": 20.465750528485163,
+        "joint_spacing_cm": 250.0,
+        "leakage_status": "major"
+      },
+      {
+        "name": "water",
+        "nodes_cm": [
+          [-348.67457645859804, -1888.7545822341008, -126.35468207120456],
+          [248.56029249219887, 1904.517160115678, -126.35468207120456]
+        ],
+        "radius_cm": 11.854884959610999,
+        "trench_half_width_cm": 41.854884959611,
+        "bedding_depth_cm": 10.801352443206216,
+        "surround_cover_cm": 16.43783680029057,
+        "joint_spacing_cm": 600.0,
+        "leakage_status": "none"
+      }
+    ]
+  },
+
+  "leaks": [
+    {
+      "origin_cm": [312.2764884413899, -100.64903614094942, -300.0381953719392],
+      "along_unit": [0.13249157516951116, 0.9911841314857204],
+      "available_water_fraction": 1.0,
+      "reach_scale": 1.0
+    }
+  ]
+}

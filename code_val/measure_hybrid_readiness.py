@@ -8,7 +8,8 @@ Phase C : part de la cible dans les voxels qu'un masque dur interdirait.
 
 Sur un dossier de scenes, un rapport readiness.json y est ecrit. Sur dataset_v3/, qui contient un
 sous-dossier par arbre, un rapport est ecrit dans chaque sous-dossier : le prior et le taux de base
-different d'une espece a l'autre, une calibration commune de k les melangerait.
+different d'une espece a l'autre, une calibration commune de k les melangerait. Le modele etant
+entraine sur tous les arbres a la fois, un rapport commun est aussi ecrit a la racine.
 """
 import argparse
 import json
@@ -18,7 +19,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hybrid.channels import read_channel
+from hybrid.channels import compute_growth_scale, read_channel
 from hybrid.masks import (GROWTH_BLOCK_SCALE, PIPE_BLOCK_FRACTION, build_forbidden_zones,
                           measure_forbidden_mass)
 from hybrid.prior import (LEAK_PRIOR_BOOSTS, build_prior_v2, calibrate_prior, compute_soft_dice,
@@ -33,19 +34,23 @@ def build_priors(archive) -> dict:
     inputs, names = archive["inputs"], tuple(archive["channel_names"])
     prior, pipe_fraction, leak_plume = (read_channel(inputs, names, name)
                                         for name in ("prior", "pipe_fraction", "leak_plume"))
-    growth_scale = read_channel(inputs, names, "bengough") * read_channel(inputs, names, "water_scale")
+    growth_scale = compute_growth_scale(inputs, names)
     priors = {"perfect_calibration": archive["target"].astype(np.float32), "geometric": prior}
     for boost in LEAK_PRIOR_BOOSTS:
         priors[f"v2_boost_{boost:g}"] = build_prior_v2(prior, growth_scale, pipe_fraction,
                                                        leak_plume, boost)
-    return priors, build_forbidden_zones(pipe_fraction, growth_scale)
+    zones = build_forbidden_zones(pipe_fraction, growth_scale)
+    if "wall_fraction" in names:
+        zones["wall"] = read_channel(inputs, names, "wall_fraction") > PIPE_BLOCK_FRACTION
+    return priors, zones
 
 
 def measure_scene(path: Path) -> dict:
     with np.load(path) as archive:
         priors, zones = build_priors(archive)
         target = archive["target"].astype(np.float32)
-        return {"dice_terms": {name: measure_dice_terms(prior, target) for name, prior in priors.items()},
+        return {"voxels": target.size,
+                "dice_terms": {name: measure_dice_terms(prior, target) for name, prior in priors.items()},
                 "prior_peak": {name: float(prior.max()) for name, prior in priors.items()},
                 "mass": {label: {"total": int(archive[key].sum(dtype=np.int64)),
                                  **measure_forbidden_mass(archive[key], zones)}
@@ -82,9 +87,13 @@ def list_scene_groups(dataset: Path) -> list:
                   if folder.is_dir() and any(folder.glob("scene_*.npz")))
 
 
-def build_report(directory: Path, pool) -> dict:
-    scenes = pool.map(measure_scene, sorted(directory.glob("scene_*.npz")), chunksize=8)
-    return {"dataset": directory.name, "scenes": len(scenes),
+def measure_base_rate(scenes: list) -> float:
+    target_sum = sum(scene["dice_terms"]["perfect_calibration"][2] for scene in scenes)
+    return float(target_sum / sum(scene["voxels"] for scene in scenes))
+
+
+def build_report(name: str, scenes: list) -> dict:
+    return {"dataset": name, "scenes": len(scenes), "target_base_rate": measure_base_rate(scenes),
             "thresholds": {"pipe_block_fraction": PIPE_BLOCK_FRACTION,
                            "growth_block_scale": GROWTH_BLOCK_SCALE},
             "priors": summarise_priors(scenes), "forbidden_mass": summarise_masks(scenes)}
@@ -100,11 +109,19 @@ def main() -> None:
     if not groups:
         raise SystemExit(f"aucun scene_*.npz dans {arguments.dataset} ni dans ses sous-dossiers")
 
+    pooled = []
     with Pool(arguments.workers) as pool:
         for directory in groups:
-            report = build_report(directory, pool)
-            (directory / REPORT_NAME).write_text(json.dumps(report, indent=2), encoding="utf-8")
-            print(json.dumps(report, indent=2))
+            scenes = pool.map(measure_scene, sorted(directory.glob("scene_*.npz")), chunksize=8)
+            write_report(directory, build_report(directory.name, scenes))
+            pooled += scenes
+    if len(groups) > 1:
+        write_report(arguments.dataset, build_report(f"{arguments.dataset.name} (all trees)", pooled))
+
+
+def write_report(directory: Path, report: dict) -> None:
+    (directory / REPORT_NAME).write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(json.dumps(report, indent=2))
 
 
 if __name__ == "__main__":
