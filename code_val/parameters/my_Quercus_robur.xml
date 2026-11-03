@@ -98,13 +98,14 @@ TROPISMES (tropismT, tropismN, tropismS), d'apres tropism.cpp et tropism.h
 	<!--   ST1 : pivot central gravitrope, ancrage profond, qui porte les charpentieres ST2, les obliques ST4, des fines ST3 et un relais profond ST7 a son extremite.   -->
 	<root name="pivot_taproot" subType="1">
 		<parameter name="a" value="0.40" dev="0.05"/>
-		<parameter name="r" value="1.0"/>
+		<!--   r = 0.12 cm/jour initial : pivot d'environ 1 m a 3 ans (chenes pedoncules de 1 a 5 ans, Polissya, Ukraine), soit 1.5 m a 5 ans et 2 m a 10 ans avec lmax = 250.   -->
+		<parameter name="r" value="0.12"/>
 		<parameter name="lmax" value="250" dev="60"/>
 		<parameter name="rlt" value="1e+09"/>
 		<parameter name="la" value="5.0"/>
 		<parameter name="lb" value="8"/>
 		<!--   ln = 14 cm : un point de ramification tous les 14 cm, soit environ 18 points sur un pivot de 250 cm ((lmax - la - lb) / ln + 1).
-		     Les charpentieres ST2 ne naissent que sur les 5 premiers points (where, environ 70 cm), par trois regles independantes a 60 % : environ 9 par arbre.
+		     Les charpentieres ST2 ne naissent que sur les 5 premiers points (where, environ 70 cm), par quatre regles independantes a 60 % : environ 12 par arbre.
 		     Les obliques ST4 (14 %) et les fines ST3 (15 %) naissent sur tous les points.   -->
 		<parameter name="ln" value="14" dev="2"/>
 		<parameter name="lnk" value="0"/>
@@ -124,6 +125,7 @@ TROPISMES (tropismT, tropismN, tropismS), d'apres tropism.cpp et tropism.h
 		<parameter name="successor" ruleId="3" numLat="1" where="apex" subType="7" organType="2" percentage="0.25"/>
 		<parameter name="successor" ruleId="4" numLat="1" where="0,1,2,3,4" subType="2" organType="2" percentage="0.60"/>
 		<parameter name="successor" ruleId="5" numLat="1" where="0,1,2,3,4" subType="2" organType="2" percentage="0.60"/>
+		<parameter name="successor" ruleId="6" numLat="1" where="0,1,2,3,4" subType="2" organType="2" percentage="0.60"/>
 	</root>
 	<!--   ST2 : charpentieres laterales longues et exotropes, nees a 82.5 deg du pivot.   -->
 	<root name="structural_lateral_roots" subType="2">
