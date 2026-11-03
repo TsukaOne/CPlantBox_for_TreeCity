@@ -13,7 +13,9 @@ des exemples incompatibles.
 import argparse
 import json
 import os
-from multiprocessing import Pool
+import multiprocessing
+from collections import deque
+from multiprocessing.connection import wait
 from pathlib import Path
 
 from generator.build import build_scene
@@ -22,6 +24,7 @@ from generator.writer import is_complete, write_scene
 from grid import VoxelGrid
 from network.intrusion import measure_largest_growth_step_cm
 from network.walls import PIPE_EXCLUSION_MARGIN_CM
+from tree.attributes import AGE_RANGE_YEARS
 from tree.species import PARAMETERS_DIRECTORY, hash_xml, identify_species, secondary_growth_for
 
 DATASET_DIRECTORY = Path(__file__).resolve().parent / "dataset_v3"
@@ -34,6 +37,8 @@ GRID = VoxelGrid(34, 64, 64, 15.0, 9.0)
 def guard_design(directory: Path, scenes: int, runs: int, tree_xml: str) -> None:
     design = {"scenes": scenes, "monte_carlo_runs": runs, "master_seed": MASTER_SEED,
               "grid": [GRID.depth_cells, GRID.row_cells, GRID.column_cells],
+              "cell_cm": [GRID.cell_width_cm, GRID.cell_height_cm],
+              "age_range_years": list(AGE_RANGE_YEARS),
               "tree_xml": tree_xml, "species": identify_species(tree_xml),
               "tree_xml_sha256": hash_xml(tree_xml)}
     path = directory / "design.json"
@@ -44,15 +49,13 @@ def guard_design(directory: Path, scenes: int, runs: int, tree_xml: str) -> None
 
 
 def produce_scene(task: tuple) -> str:
-    configuration, directory, write_vtp, raw_vtp = task
+    configuration, directory, write_vtp, raw_vtp, write_vti = task
     label = Path(configuration.tree_xml).stem
-    if is_complete(directory, configuration.identifier):
-        return f"{label}  scene {configuration.identifier:5d} deja presente, ignoree"
 
     parameters = secondary_growth_for(configuration.tree.species)
     example = build_scene(configuration, GRID, parameters,
                           directory / VTP_SUBDIRECTORY if write_vtp else None, raw_vtp=raw_vtp)
-    write_scene(directory, configuration, example, GRID, parameters)
+    write_scene(directory, configuration, example, GRID, parameters, write_vti=write_vti)
 
     diagnostics = example.diagnostics
     return (f"{label}  scene {configuration.identifier:5d}"
@@ -65,6 +68,35 @@ def produce_scene(task: tuple) -> str:
             f"  {diagnostics['runtime_seconds']:5.1f} s")
 
 
+def run_in_process(task: tuple) -> None:
+    print(produce_scene(task), flush=True)
+
+
+def run_tasks(tasks: list, workers: int) -> list:
+    """Une scene = un processus spawn, comme dans sandbox_v3.py : l'etat de CPlantBox partage entre deux
+    scenes faussait la seconde et bloquait la troisieme. Un Pool reutilise ses processus et ne voit pas
+    un worker tue (OOM) : il attendrait indefiniment. Retourne les scenes echouees."""
+    context = multiprocessing.get_context("spawn")
+    # "python -u" n'est pas transmis aux enfants spawn : sans cela leur sortie C++ reste bufferisee.
+    os.environ["PYTHONUNBUFFERED"] = "1"
+    waiting, running, failed = deque(tasks), {}, []
+    while waiting or running:
+        while waiting and len(running) < workers:
+            task = waiting.popleft()
+            process = context.Process(target=run_in_process, args=(task,))
+            process.start()
+            running[process] = task
+        wait([process.sentinel for process in running])
+        for process in [p for p in running if p.exitcode is not None]:
+            process.join()
+            configuration = running.pop(process)[0]
+            if process.exitcode != 0:
+                failed.append(f"{Path(configuration.tree_xml).stem} scene {configuration.identifier} "
+                              f"(code {process.exitcode}, -9 = memoire)")
+                print(f"ECHEC {failed[-1]}", flush=True)
+    return failed
+
+
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tree", nargs="+", required=True, metavar="XML",
@@ -74,6 +106,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--runs", type=int, default=MONTE_CARLO_RUNS)
     parser.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     parser.add_argument("--vtp", action="store_true", help="ecrire aussi le vtp du premier tirage")
+    parser.add_argument("--vti", action="store_true", help="ecrire aussi le .vti de chaque scene (7,5 Mo, pour ParaView)")
     parser.add_argument("--vtp-raw", action="store_true",
                         help="vtp tel que CPlantBox l'ecrit, sans les rayons de croissance secondaire")
     parser.add_argument("--output", type=Path, default=None,
@@ -106,12 +139,15 @@ def main() -> None:
         directory = base / Path(tree_xml).stem
         directory.mkdir(parents=True, exist_ok=True)
         guard_design(directory, arguments.scenes, arguments.runs, tree_xml)
-        tasks += [(configuration, directory, arguments.vtp or arguments.pilot, arguments.vtp_raw)
-                  for configuration in scenes]
+        tasks += [(configuration, directory, arguments.vtp or arguments.pilot, arguments.vtp_raw,
+                   arguments.vti or arguments.pilot) for configuration in scenes]
 
-    with Pool(arguments.workers) as pool:
-        for message in pool.imap_unordered(produce_scene, tasks):
-            print(message, flush=True)
+    pending = [task for task in tasks if not is_complete(task[1], task[0].identifier)]
+    print(f"{len(tasks) - len(pending)} scenes deja presentes, {len(pending)} a produire", flush=True)
+    failed = run_tasks(pending, arguments.workers)
+    if failed:
+        raise SystemExit("scenes echouees (relancer la meme commande reprend les manquantes) :\n  "
+                         + "\n  ".join(failed))
 
 
 if __name__ == "__main__":

@@ -26,6 +26,9 @@ ROUND_CROSS_SECTION = 0.0
 TILT_AXIS = 1
 AZIMUTH_AXIS = 2
 
+import os
+BOX_MARGIN_CM = float(os.environ.get("TREECITY_BOX_MARGIN_CM", "0"))
+
 
 def build_segment_solid(segment: PipeSegment) -> pb.SignedDistanceFunction:
     start = np.asarray(segment.start_cm, float)
@@ -59,6 +62,8 @@ def build_wall_segments(lumens: tuple, margin_cm: float = PIPE_EXCLUSION_MARGIN_
 
 def build_street_geometry(lumens: tuple, grid: VoxelGrid) -> pb.SignedDistanceFunction:
     """Une difference plate : imbriquer une union est la meme expression et un dispatch de plus."""
-    soil_box = pb.SDF_PlantBox(2.0 * grid.half_width_cm, 2.0 * grid.half_length_cm, grid.depth_cm)
+    soil_box = pb.SDF_PlantBox(2.0 * (grid.half_width_cm + BOX_MARGIN_CM),
+                               2.0 * (grid.half_length_cm + BOX_MARGIN_CM),
+                               grid.depth_cm + BOX_MARGIN_CM)
     solids = [build_segment_solid(segment) for segment in build_wall_segments(lumens)]
     return pb.SDF_Difference([soil_box] + solids)
