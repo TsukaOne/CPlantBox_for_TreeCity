@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-DEPTH_CELLS = 34
+DEPTH_CELLS = 40
 ROW_CELLS = 64
 COLUMN_CELLS = 64
 CELL_WIDTH_CM = 15.0

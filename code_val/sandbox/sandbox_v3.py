@@ -46,7 +46,7 @@ from tree.attributes import (DBH_AGE_EXPONENT, DBH_COEFFICIENT, TreeAttributes,
 from tree.species import PARAMETERS_DIRECTORY, hash_xml, identify_species, secondary_growth_for
 
 SANDBOX_PARENT = Path(__file__).resolve().parent
-GRID = VoxelGrid(34, 64, 64, 15.0, 9.0)
+GRID = VoxelGrid()
 SANDBOX_AGE_YEARS = 120.0
 SANDBOX_SEED = 7
 SANDBOX_RUNS = 50

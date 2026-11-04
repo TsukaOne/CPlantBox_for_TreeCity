@@ -27,7 +27,10 @@ TILT_AXIS = 1
 AZIMUTH_AXIS = 2
 
 import os
-BOX_MARGIN_CM = float(os.environ.get("TREECITY_BOX_MARGIN_CM", "0"))
+# Soil box margin (cm): the box extends this far beyond the grid, sideways and downwards, so that roots are not
+# squeezed against the grid edge. TREECITY_BOX_MARGIN_CM overrides it (0 to compare with the old datasets).
+DEFAULT_BOX_MARGIN_CM = 60.0
+BOX_MARGIN_CM = float(os.environ.get("TREECITY_BOX_MARGIN_CM", DEFAULT_BOX_MARGIN_CM))
 
 
 def build_segment_solid(segment: PipeSegment) -> pb.SignedDistanceFunction:

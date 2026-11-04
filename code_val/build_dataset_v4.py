@@ -40,7 +40,7 @@ DATASET_DIRECTORY = Path(__file__).resolve().parent / "dataset_v4"
 PILOT_DIRECTORY = Path(__file__).resolve().parent / "pilot_v4"
 PILOT_BLOCKS = 8
 VTP_SUBDIRECTORY = "vtp"
-GRID = VoxelGrid(34, 64, 64, 15.0, 9.0)
+GRID = VoxelGrid()
 
 
 def guard_design(directory: Path, scenes: int, runs: int, tree_xml: str) -> None:

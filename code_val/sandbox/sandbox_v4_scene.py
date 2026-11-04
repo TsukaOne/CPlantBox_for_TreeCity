@@ -31,7 +31,7 @@ from soil_v4.water import MEAN_STATE, WaterRegime
 from tree.species import secondary_growth_for
 
 SCENE = 1001
-GRID = VoxelGrid(34, 64, 64, 15.0, 9.0)
+GRID = VoxelGrid()
 SEED = 7
 PIT_VARIANT = "loose"
 NORMAL_YEAR_FACTOR = 1.0
