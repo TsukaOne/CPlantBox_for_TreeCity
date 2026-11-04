@@ -11,10 +11,12 @@ A parameter file is identified by the prefix of its file name: the variants that
 by one (my_Quercus_robur_T4.xml) share the species of the file they derive from.
 """
 import hashlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, replace
 from pathlib import Path
 
-from secondary_growth.parameters import SecondaryGrowthParameters
+from dataset.occupancy import STRUCTURAL_SUBTYPES
+from secondary_growth.parameters import NEUTRAL_AXIS_TAPER, SecondaryGrowthParameters
+from tree.attributes import DAYS_PER_YEAR, DBH_AGE_EXPONENT, DBH_COEFFICIENT
 
 PICEA_ABIES = "picea_abies"
 QUERCUS_ROBUR = "quercus_robur"
@@ -31,16 +33,32 @@ class Species:
     architecture: str                 # one of ARCHITECTURE_SLOTS
     xml_prefixes: tuple               # lowercase prefixes of the parameter files of this species
     depth_decay_beta: float           # Gale and Grigal, for the depth profile of the prior
-    # Provisional for every species: the Picea abies prior of secondary_root_growth_math.md section 5.
-    # The radii of an oak or a horse chestnut, and so the major/minor targets, are not calibrated.
-    secondary_growth: SecondaryGrowthParameters = field(default_factory=SecondaryGrowthParameters)
+    # Secondary growth of the species: collar diameter tied to the project DBH, taper from Kalliokoski et al.
+    # (see secondary_growth_modifications.md, section 2). Broadleaves use a Betula proxy: provisional.
+    secondary_growth: SecondaryGrowthParameters
+
+# Collar diameter D0 = COLLAR_TO_DBH_RATIO * DBH(age). 1.0 is the lower bound (a root collar is usually
+# wider than the DBH); no source. The radius is D0 / 2, hence the factor 0.5; k is computed, not typed.
+COLLAR_TO_DBH_RATIO = 1.0
+PICEA_SECONDARY_GROWTH = SecondaryGrowthParameters(
+    secondary_growth_rate=0.5 * COLLAR_TO_DBH_RATIO * DBH_COEFFICIENT / DAYS_PER_YEAR ** DBH_AGE_EXPONENT,
+    allometric_exponent=DBH_AGE_EXPONENT,
+    murray_exponent=2.0, maximum_radius_cm=40.0,
+    main_axis_taper=(1.739, -0.043),
+    primary_axis_taper=NEUTRAL_AXIS_TAPER,
+    secondary_axis_taper=(1.409, -0.095),
+    structural_subtypes=STRUCTURAL_SUBTYPES)
+# Broadleaf taper: Betula pendula, mature MT stand (Kalliokoski et al. 2008, Table 7), proxy
+BROADLEAF_PROVISIONAL = replace(PICEA_SECONDARY_GROWTH, maximum_radius_cm=40.0,
+                                main_axis_taper=(1.112, -0.022),
+                                secondary_axis_taper=(1.801, -0.462))
 
 
 SPECIES = (
-    Species(PICEA_ABIES, "surface", ("my_picea_abies", "picea_abies"), 0.960),
-    Species(QUERCUS_ROBUR, "taproot", ("my_quercus_robur",), 0.968),
+    Species(PICEA_ABIES, "surface", ("my_picea_abies", "picea_abies"), 0.960, PICEA_SECONDARY_GROWTH),
+    Species(QUERCUS_ROBUR, "taproot", ("my_quercus_robur",), 0.968, BROADLEAF_PROVISIONAL),
     # depth_decay_beta is provisional: no value of its own yet, the one of the other broadleaf.
-    Species(AESCULUS_HIPPOCASTANUM, "heart", ("my_aesculus_hippocastanum",), 0.968),
+    Species(AESCULUS_HIPPOCASTANUM, "heart", ("my_aesculus_hippocastanum",), 0.968, BROADLEAF_PROVISIONAL),
 )
 
 SPECIES_SLOTS = tuple(species.name for species in SPECIES)

@@ -23,11 +23,11 @@ from grid import VoxelGrid
 # root born almost horizontal bend towards the vertical, which says nothing about its sinuosity.
 WINDOW_START_CM = 40.0
 WINDOW_END_CM = 100.0
-# A window deeper than this touches the floor of the grid (306 cm), where the roots slide sideways.
+# A window deeper than this touches the floor of the grid (360 cm), where the roots slide sideways.
 FLOOR_DEPTH_CM = 296.0
 VERTICAL_UZ = -0.8
 
-DEPTH_BANDS_CM = (0, 30, 60, 120, 200, 306)
+DEPTH_BANDS_CM = (0, 30, 60, 120, 200, 360)
 RADIUS_BANDS_CM = (0, 100, 250, 700)
 DEEP_BAND_START = 3        # index of the 120-200 cm band
 FAR_RADIUS_BAND = 2        # index of the band beyond 250 cm from the trunk
@@ -154,7 +154,7 @@ def save_root_records(csv_path: Path, per_tree_records: list) -> None:
 
 
 def save_length_distribution(csv_path: Path, per_tree_lengths: list) -> None:
-    """bande_profondeur : 0 = 0-30, 1 = 30-60, 2 = 60-120, 3 = 120-200, 4 = 200-306 cm.
+    """bande_profondeur : 0 = 0-30, 1 = 30-60, 2 = 60-120, 3 = 120-200, 4 = 200-360 cm.
     bande_rayon : 0 = 0-100, 1 = 100-250, 2 = beyond 250 cm from the trunk."""
     with open(csv_path, "w", newline="") as file:
         writer = csv.writer(file)

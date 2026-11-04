@@ -218,7 +218,7 @@ def main() -> None:
 	parent_directory = args.output if args.output else SANDBOX_PARENT / f"sandbox_{version}{suffix}"
 	parent_directory.mkdir(parents=True, exist_ok=True)
 	
-	grid = VoxelGrid(34, 64, 64, 15.0, 9.0)
+	grid = VoxelGrid()
 
 	for tree in map(Path, args.tree):
 		directory = parent_directory / tree.stem

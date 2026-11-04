@@ -23,10 +23,28 @@ class RootTree(NamedTuple):
     ages: np.ndarray                # (n_points,), jours depuis la creation du noeud
     is_structural: np.ndarray       # (n_points,), booleen
     ambiguous_links: int
+    subtypes: np.ndarray            # (n_points,), sous-type CPlantBox de l'organe du noeud
+    axis_distances_cm: np.ndarray   # (n_points,), distance le long de l'organe depuis son premier noeud
+    previous_axis_distances_cm: np.ndarray  # idem pour le noeud precedent de l'organe (0 au premier noeud)
+    organ_indices: np.ndarray       # (n_points,), indice de l'organe (polyligne) de chaque noeud
+    organ_identifiers: np.ndarray   # (n_organs,), identifiant CPlantBox, dans l'ordre de creation
+    organ_starts: np.ndarray        # (n_organs,), indice du premier noeud de chaque organe
+    organ_sizes: np.ndarray         # (n_organs,), nombre de noeuds de chaque organe
 
 
 def measure_polyline_sizes(offsets: np.ndarray) -> np.ndarray:
     return np.diff(offsets, prepend=0)
+
+
+def measure_axis_distances(points: np.ndarray, offsets: np.ndarray) -> np.ndarray:
+    """Distance cumulee le long de chaque polyligne (un organe = un axe), 0 a son premier noeud."""
+    sizes = measure_polyline_sizes(offsets)
+    starts = offsets - sizes
+    steps = np.zeros(len(points))
+    steps[1:] = np.linalg.norm(np.diff(points, axis=0), axis=1)
+    steps[starts] = 0.0
+    cumulative = np.cumsum(steps)
+    return cumulative - np.repeat(cumulative[starts], sizes)
 
 
 def expand_to_points(values: np.ndarray, offsets: np.ndarray) -> np.ndarray:
@@ -111,6 +129,10 @@ def build_root_tree(polydata, parameters: SecondaryGrowthParameters) -> RootTree
 
     parent_indices, ambiguous_links = build_parent_indices(polydata.points, offsets, orders, identifiers)
     subtypes = expand_to_points(polydata.cell_arrays["subType"].astype(np.intp), offsets)
+    distances = measure_axis_distances(polydata.points, offsets)
+    previous_distances = np.concatenate([[0.0], distances[:-1]])
+    sizes = measure_polyline_sizes(offsets)
+    previous_distances[offsets - sizes] = 0.0
 
     return RootTree(
         parent_indices=parent_indices,
@@ -119,4 +141,11 @@ def build_root_tree(polydata, parameters: SecondaryGrowthParameters) -> RootTree
         ages=measure_node_ages(polydata),
         is_structural=np.isin(subtypes, list(parameters.structural_subtypes)),
         ambiguous_links=ambiguous_links,
+        subtypes=subtypes,
+        axis_distances_cm=distances,
+        previous_axis_distances_cm=previous_distances,
+        organ_indices=expand_to_points(np.arange(len(offsets)), offsets),
+        organ_identifiers=identifiers,
+        organ_starts=offsets - sizes,
+        organ_sizes=sizes,
     )

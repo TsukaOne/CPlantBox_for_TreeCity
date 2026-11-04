@@ -2,7 +2,7 @@
 Aesculus hippocastanum (marronnier d'Inde), architecture en coeur (type 2), simulation de 120 ans.
 
 ARCHITECTURE
-  Un court collet (ST1) porte 7 a 9 charpentieres obliques (ST2, environ 20 deg sous l'horizontale, exotropes) qui portent
+  Un court collet (ST1) porte environ 12 charpentieres obliques (ST2, environ 20 deg sous l'horizontale, exotropes) qui portent
   des laterales plagiotropes (ST6), des fines (ST3) et quelques descendantes (ST4). Pas de pivot, pas de galette.
   Systeme large et superficiel : etalement horizontal de plusieurs metres, descendantes issues des laterales, profond moins etale.
   Le tropisme est choisi par sous-type : ST1, ST4 et ST7 gravitropes (T=1), ST2 exotrope (T=2), ST3, ST5 et ST6 plagiotropes (T=0).
@@ -105,7 +105,8 @@ TROPISMES (tropismT, tropismN, tropismS), d'apres tropism.cpp et tropism.h
 	</seed>
 	<!--   ST1 : collet court gravitrope, sans pivot persistant, qui porte les charpentieres ST2 (85 %) et quelques descendantes ST4 (15 %).   -->
 	<root name="juvenile_stub_axis" subType="1">
-		<parameter name="a" value="1.40" dev="0.15"/>
+		<!--   a = 0.40 : rayon primaire du collet. Le collet est fixe par le DBH (D0 = DBH), a s'y ajoute : 1.40 donnait 1.6 fois DBH/2 a 5 ans. Valeur non sourcee, alignee sur le pivot de Quercus.   -->
+		<parameter name="a" value="0.40" dev="0.05"/>
 		<parameter name="r" value="0.10"/>
 		<parameter name="lmax" value="60" dev="5"/>
 		<parameter name="rlt" value="1e+09"/>
@@ -124,10 +125,11 @@ TROPISMES (tropismT, tropismN, tropismS), d'apres tropism.cpp et tropism.h
 		<parameter name="tropismS" value="0.06"/>
 		<parameter name="successor" ruleId="0" numLat="1" Where="" subType="2" organType="2" percentage="0.85"/>
 		<parameter name="successor" ruleId="1" numLat="1" Where="" subType="4" organType="2" percentage="0.15"/>
+		<parameter name="successor" ruleId="2" numLat="1" Where="" subType="2" organType="2" percentage="0.50"/>
 	</root>
 	<!--   ST2 : charpentieres obliques exotropes, coeur du systeme, porteuses de fines ST3, de laterales ST6 et de descendantes ST4.   -->
 	<root name="oblique_framework_roots" subType="2">
-		<parameter name="a" value="0.90" dev="0.08"/>
+		<parameter name="a" value="0.10" dev="0.01"/>
 		<parameter name="r" value="0.055" dev="0.011"/>
 		<parameter name="lmax" value="260" dev="75"/>
 		<parameter name="rlt" value="1e+09"/>
@@ -174,7 +176,7 @@ TROPISMES (tropismT, tropismN, tropismS), d'apres tropism.cpp et tropism.h
 	</root>
 	<!--   ST4 : descendantes structurales (sinkers), seules racines franchement verticales, avec des racines profondes ST7 (15 %) a tous les points de ramification.   -->
 	<root name="structural_sinkers" subType="4">
-		<parameter name="a" value="0.65" dev="0.04"/>
+		<parameter name="a" value="0.10" dev="0.01"/>
 		<parameter name="r" value="0.10"/>
 		<parameter name="lmax" value="110" dev="30"/>
 		<parameter name="rlt" value="1e+09"/>
@@ -218,7 +220,7 @@ TROPISMES (tropismT, tropismN, tropismS), d'apres tropism.cpp et tropism.h
 	</root>
 	<!--   ST6 : laterales secondaires plagiotropes, qui etalent le systeme a profondeur moyenne.   -->
 	<root name="exploratory_laterals" subType="6">
-		<parameter name="a" value="0.60" dev="0.03"/>
+		<parameter name="a" value="0.10" dev="0.01"/>
 		<parameter name="r" value="0.07" dev="0.012"/>
 		<!--   lmax = 380 cm : c'est ce sous-type qui donne l'etalement horizontal du systeme. A 520 cm, 33 % des ST6 touchaient le fond de la grille (306 cm) et cumulaient leur longueur dans la derniere couche ; a 380 cm, 19 %.   -->
 		<parameter name="lmax" value="380" dev="120"/>
