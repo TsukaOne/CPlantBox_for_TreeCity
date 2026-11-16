@@ -7,11 +7,14 @@ from dataclasses import dataclass
 
 import numpy as np
 
-DEPTH_CELLS = 34
+DEPTH_CELLS = 40
 ROW_CELLS = 64
 COLUMN_CELLS = 64
 CELL_WIDTH_CM = 15.0
 CELL_HEIGHT_CM = 9.0
+# CPlantBox stops a root at the floor of the soil box but its last segment overshoots it by a fraction of a cm
+# (0.26 cm at most on the sandbox trees): those points belong to the last layer, not to the outside.
+FLOOR_TOLERANCE_CM = 1.0
 
 
 @dataclass(frozen=True)
@@ -59,7 +62,10 @@ class VoxelGrid:
 
     def locate_points(self, points: np.ndarray):
         """Map (N, 3) world coordinates in cm to grid indices plus an inside mask."""
-        depth_index = np.floor(-points[:, 2] / self.cell_height_cm).astype(np.intp)
+        depth_cm = -points[:, 2]
+        depth_index = np.floor(depth_cm / self.cell_height_cm).astype(np.intp)
+        overshoot = (depth_cm >= self.depth_cm) & (depth_cm < self.depth_cm + FLOOR_TOLERANCE_CM)
+        depth_index = np.where(overshoot, self.depth_cells - 1, depth_index)
         row_index = np.floor((points[:, 1] + self.half_length_cm) / self.cell_width_cm).astype(np.intp)
         column_index = np.floor((points[:, 0] + self.half_width_cm) / self.cell_width_cm).astype(np.intp)
         inside = (

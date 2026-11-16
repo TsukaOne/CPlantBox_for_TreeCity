@@ -8,6 +8,11 @@
 *.vtp
 *.vtk
 *.csv
+*.log
+
+my_Aesculus_hippocastanum_T*.xml
+my_Picea_abies_T*.xml
+my_Quercus_robur_T*.xml
 
 *.devcontainer
 
@@ -25,6 +30,7 @@
 /code_val/sandbox/sandbox_v2_*
 /code_val/sandbox/sandbox_v3
 /code_val/sandbox/sandbox_v3_*
+sandbox_age_*
 /code_val/pilot_v2
 code_val/pilot_v2/
 code_val/dataset_v2_runs/

@@ -19,7 +19,7 @@ from scipy.stats import binomtest
 
 from grid import VoxelGrid
 
-GRID = VoxelGrid(34, 64, 64, 15.0, 9.0)
+GRID = VoxelGrid()
 PAIRED_KEYS = ("tree", "pit_radius_cm", "pit_depth_cm", "street", "leaks", "root_seeds")
 SHALLOW_DEPTHS_CM = (50.0, 100.0)
 STILLBORN_SEGMENTS = 50

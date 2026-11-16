@@ -23,7 +23,7 @@ from network.wall_layouts import FOUNDATION, NARROW_STRIP, CONFINED_PIT, draw_wa
 from network.wall_measures import measure_wall_distance
 from network.walls import PIPE_EXCLUSION_MARGIN_CM
 
-GRID = VoxelGrid(34, 64, 64, 15.0, 9.0)
+GRID = VoxelGrid()
 SCENE = 1001
 ANY_TREE_XML = "my_Picea_abies.xml"  # the street, the pit and the walls do not depend on the tree
 CHECK_DOMAIN = 99

@@ -10,7 +10,7 @@ import numpy as np
 
 
 DAYS_PER_YEAR = 365
-AGE_RANGE_YEARS = (5.0, 120.0)  # au-dela de 60 ans le XML est extrapole
+AGE_RANGE_YEARS = (5.0, 120.0)  # passe a CPlantBox par --age (growth.py), jamais par le simulationTime du XML
 
 DBH_COEFFICIENT = 1.2
 DBH_AGE_EXPONENT = 0.85

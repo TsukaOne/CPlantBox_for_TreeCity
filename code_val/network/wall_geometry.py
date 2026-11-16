@@ -12,8 +12,8 @@ import plantbox as pb
 
 from grid import VoxelGrid
 from network.primitives import TrenchSlab
-from network.walls import (AZIMUTH_AXIS, PIPE_EXCLUSION_MARGIN_CM, ROUND_CROSS_SECTION,
-                           build_segment_solid, build_wall_segments)
+from network.walls import (AZIMUTH_AXIS, BOX_MARGIN_CM, PIPE_EXCLUSION_MARGIN_CM, 
+                           ROUND_CROSS_SECTION, build_segment_solid, build_wall_segments)
 
 SURFACE_CM = 0.0
 
@@ -37,7 +37,9 @@ def build_panel_solids(panel: TrenchSlab) -> list:
 
 
 def build_scene_geometry(lumens: tuple, panels: tuple, grid: VoxelGrid) -> pb.SignedDistanceFunction:
-    soil_box = pb.SDF_PlantBox(2.0 * grid.half_width_cm, 2.0 * grid.half_length_cm, grid.depth_cm)
+    soil_box = pb.SDF_PlantBox(2.0 * (grid.half_width_cm + BOX_MARGIN_CM),
+                               2.0 * (grid.half_length_cm + BOX_MARGIN_CM),
+                               grid.depth_cm + BOX_MARGIN_CM)
     pipes = [build_segment_solid(segment) for segment in build_wall_segments(lumens)]
     walls = [solid for panel in panels for solid in build_panel_solids(panel)]
     return pb.SDF_Difference([soil_box] + pipes + walls)

@@ -11,21 +11,20 @@ r_age ne depend que du temps, donc a 120 ans il epaissit une laterale de 3e ordr
 que le collet. r_murray respecte la hierarchie mais part du rayon primaire de CPlantBox,
 trop fin d'un a deux ordres de grandeur. On garde donc le profil de Murray et on l'ancre
 sur le collet de la loi d'age.
-
-Le pipe model et da Vinci ne sont pas utilises ici : leur coefficient inferieur a 1,
-applique a chaque noeud, decroit le long d'une chaine au lieu de s'accumuler. Mesure :
-leurs rayons par ordre sont identiques au rayon primaire, ils n'apportent rien. Ils
-restent calcules et ecrits dans le vtp comme temoins de calibration.
 """
 import numpy as np
 
 
 def fuse_radii(primary_radii: np.ndarray, age_radii: np.ndarray, murray_radii: np.ndarray,
-               is_structural: np.ndarray, levels: list) -> np.ndarray:
+               is_structural: np.ndarray, levels: list, exponent: float = 2.0) -> np.ndarray:
     collar = levels[0]
-    anchor = murray_radii[collar].max()
-    scale = age_radii[collar].max() / anchor if anchor > 0.0 else 1.0
-    return np.where(is_structural, murray_radii * scale, primary_radii)
+    primary_power = primary_radii ** exponent
+    anchor = (murray_radii[collar] ** exponent - primary_power[collar]).max()
+    target = (age_radii[collar] ** exponent - primary_power[collar]).max()
+    ratio = target / anchor if anchor > 0.0 else 1.0
+    excess = np.maximum(murray_radii ** exponent - primary_power, 0.0)
+    fused = (primary_power + ratio * excess) ** (1.0 / exponent)
+    return np.where(is_structural, fused, primary_radii)
 
 
 def enforce_continuity(radii: np.ndarray, parent_indices: np.ndarray, levels: list,

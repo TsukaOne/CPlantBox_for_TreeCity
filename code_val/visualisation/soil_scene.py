@@ -29,7 +29,7 @@ from soil_v4.scene import build_scene_soil, compute_scene_state, draw_soil_scene
 from soil_v4.water import MEAN_STATE, list_state_fractions
 from visualisation.soil_report import print_scene_report
 
-GRID = VoxelGrid(34, 64, 64, 15.0, 9.0)
+GRID = VoxelGrid()
 ANY_TREE_XML = "my_Picea_abies.xml"  # the soil, the networks and the walls do not depend on the tree
 SOIL_DOMAIN = 6
 WALL_DOMAIN = 9

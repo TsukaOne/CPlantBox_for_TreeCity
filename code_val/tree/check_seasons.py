@@ -21,7 +21,7 @@ from grid import VoxelGrid
 from tree.growth import build_soil_grid, extract_root_system, grow_plant
 from tree.seasons import SEASON_COUNT, SeasonalGrids, grow_plant_through_seasons
 
-GRID = VoxelGrid(34, 64, 64, 15.0, 9.0)
+GRID = VoxelGrid()
 SCENE = 1001
 SEEDS = range(1, 11)
 EQUIVALENCE_AGE_YEARS = 40.0

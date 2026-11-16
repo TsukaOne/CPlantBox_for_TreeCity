@@ -1,17 +1,20 @@
 """Reassigne les rayons racinaires d'un vtp CPlantBox par croissance secondaire.
 
 CPlantBox fige le rayon de chaque racine a sa creation. Ce post-processing le
-recalcule apres coup selon secondary_root_growth_math.md et reecrit le vtp enrichi :
+recalcule apres coup selon secondary_growth_modifications.md et reecrit le vtp enrichi :
 la geometrie et le CellData d'origine sont conserves, seuls des tableaux de rayons
-par noeud sont ajoutes.
+par noeud sont ajoutes. Les parametres sont ceux de l'espece (tree/species.py) ;
+--growth-rate, --allometric-exponent et --murray-exponent les remplacent.
 """
 import argparse
+from dataclasses import replace
 from pathlib import Path
 
 from secondary_growth.fusion import measure_taper_ratio
 from secondary_growth.parameters import SecondaryGrowthParameters
 from secondary_growth.polydata import read_polydata, write_polydata
 from secondary_growth.radii import FINAL_RADIUS_NAME, build_radius_arrays
+from tree.species import SPECIES_SLOTS, secondary_growth_for
 
 VTP_PATTERN = "*.vtp"
 OUTPUT_SUFFIX = "_thickened.vtp"
@@ -47,33 +50,28 @@ def collect_sources(entry: Path) -> list:
 
 
 def parse_arguments() -> argparse.Namespace:
-    defaults = SecondaryGrowthParameters()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=Path, help="un fichier .vtp ou un dossier en contenant")
+    parser.add_argument("--species", required=True, choices=SPECIES_SLOTS,
+                        help="espece : ses parametres sont dans tree/species.py")
     parser.add_argument("-o", "--output", type=Path, default=None,
                         help="fichier ou dossier de sortie, sinon <nom>_thickened.vtp a cote")
-    parser.add_argument("--growth-rate", type=float, default=defaults.secondary_growth_rate,
-                        help="k, coefficient de croissance secondaire en cm.jour^-alpha")
-    parser.add_argument("--allometric-exponent", type=float, default=defaults.allometric_exponent,
-                        help="alpha, exposant allometrique de la loi en puissance")
-    parser.add_argument("--pipe-efficiency", type=float, default=defaults.pipe_efficiency,
-                        help="kappa, efficacite du pipe model de Shinozaki")
-    parser.add_argument("--area-conservation", type=float, default=defaults.area_conservation,
-                        help="SGC, conservation des aires de la regle de da Vinci")
-    parser.add_argument("--murray-exponent", type=float, default=defaults.murray_exponent,
-                        help="Delta, exposant de la loi de Murray entre 2 et 3")
+    parser.add_argument("--growth-rate", type=float, default=None,
+                        help="k [cm.jour^-alpha] : remplace celui de l'espece")
+    parser.add_argument("--allometric-exponent", type=float, default=None,
+                        help="alpha : remplace celui de l'espece")
+    parser.add_argument("--murray-exponent", type=float, default=None,
+                        help="Delta, entre 2 et 3 : remplace celui de l'espece")
     return parser.parse_args()
 
 
 def main() -> None:
     arguments = parse_arguments()
-    parameters = SecondaryGrowthParameters(
-        secondary_growth_rate=arguments.growth_rate,
-        allometric_exponent=arguments.allometric_exponent,
-        pipe_efficiency=arguments.pipe_efficiency,
-        area_conservation=arguments.area_conservation,
-        murray_exponent=arguments.murray_exponent,
-    )
+    overrides = {name: value for name, value in (("secondary_growth_rate", arguments.growth_rate),
+                                                 ("allometric_exponent", arguments.allometric_exponent),
+                                                 ("murray_exponent", arguments.murray_exponent))
+                 if value is not None}
+    parameters = replace(secondary_growth_for(arguments.species), **overrides)
     sources = collect_sources(arguments.input)
     if not sources:
         raise SystemExit(f"aucun fichier .vtp dans {arguments.input}")

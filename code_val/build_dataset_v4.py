@@ -17,10 +17,11 @@ only by the pilot or with --vti.
 """
 import argparse
 import json
+import multiprocessing
 import os
-import traceback
+from collections import deque
 from dataclasses import asdict
-from multiprocessing import Pool
+from multiprocessing.connection import wait
 from pathlib import Path
 
 from generator.scene import MASTER_SEED, MONTE_CARLO_RUNS, SCENE_COUNT
@@ -31,19 +32,23 @@ from generator_v4.scene import draw_scene_v4
 from generator_v4.writer import write_scene_v4
 from grid import VoxelGrid
 from network.intrusion import measure_largest_growth_step_cm
-from network.walls import PIPE_EXCLUSION_MARGIN_CM
+from network.walls import BOX_MARGIN_CM, PIPE_EXCLUSION_MARGIN_CM
+from tree.attributes import AGE_RANGE_YEARS
 from tree.species import PARAMETERS_DIRECTORY, hash_xml, identify_species, secondary_growth_for
 
 DATASET_DIRECTORY = Path(__file__).resolve().parent / "dataset_v4"
 PILOT_DIRECTORY = Path(__file__).resolve().parent / "pilot_v4"
 PILOT_BLOCKS = 8
 VTP_SUBDIRECTORY = "vtp"
-GRID = VoxelGrid(34, 64, 64, 15.0, 9.0)
+GRID = VoxelGrid()
 
 
 def guard_design(directory: Path, scenes: int, runs: int, tree_xml: str) -> None:
     design = {"scenes": scenes, "monte_carlo_runs": runs, "master_seed": MASTER_SEED,
               "grid": [GRID.depth_cells, GRID.row_cells, GRID.column_cells],
+              "cell_cm": [GRID.cell_width_cm, GRID.cell_height_cm],
+              "age_range_years": list(AGE_RANGE_YEARS),
+              "box_margin_cm": BOX_MARGIN_CM,
               "tree_xml": tree_xml, "species": identify_species(tree_xml),
               "tree_xml_sha256": hash_xml(tree_xml), "growth_options": asdict(GROWTH_OPTIONS)}
     path = directory / "design.json"
@@ -68,17 +73,35 @@ def build_and_write_scene(configuration, directory: Path, write_vtp: bool, write
             f"  {diagnostics['runtime_seconds']:5.1f} s")
 
 
-def produce_scene(task: tuple) -> tuple[bool, str]:
-    """Returns whether the scene failed, and its log line."""
+def run_in_process(task: tuple) -> None:
     configuration, directory, write_vtp, write_vti = task
     heading = f"{Path(configuration.tree_xml).stem}  scene {configuration.identifier:5d}"
-    if is_complete(directory, configuration.identifier):
-        return False, f"{heading} already written, skipped"
-    try:
-        line = build_and_write_scene(configuration, directory, write_vtp, write_vti)
-        return False, f"{heading}  {line}"
-    except Exception:  # one scene must not stop the other workers: it stays unwritten for a rerun
-        return True, f"{heading}  FAILED, left unwritten\n{traceback.format_exc()}"
+    line = build_and_write_scene(configuration, directory, write_vtp, write_vti)
+    print(f"{heading}  {line}", flush=True)
+
+
+def run_tasks(tasks: list, workers: int) -> list:
+    """One scene = one spawn process: a Pool reuses its processes and does not see a worker
+    killed for lack of memory. A scene that raises leaves its traceback on stderr and an exit
+    code 1. Returns the failed scenes."""
+    context = multiprocessing.get_context("spawn")
+    os.environ["PYTHONUNBUFFERED"] = "1"  # not passed to spawn children by "python -u"
+    waiting, running, failed = deque(tasks), {}, []
+    while waiting or running:
+        while waiting and len(running) < workers:
+            task = waiting.popleft()
+            process = context.Process(target=run_in_process, args=(task,))
+            process.start()
+            running[process] = task
+        wait([process.sentinel for process in running])
+        for process in [p for p in running if p.exitcode is not None]:
+            process.join()
+            configuration = running.pop(process)[0]
+            if process.exitcode != 0:
+                failed.append(f"{Path(configuration.tree_xml).stem} scene {configuration.identifier} "
+                              f"(code {process.exitcode}, -9 = out of memory)")
+                print(f"FAILED, left unwritten: {failed[-1]}", flush=True)
+    return failed
 
 
 def select_identifiers(arguments: argparse.Namespace, scenes: int) -> list:
@@ -131,13 +154,11 @@ def main() -> None:
                    arguments.vtp or arguments.pilot, arguments.vti or arguments.pilot)
                   for identifier in identifiers]
 
-    failures = 0
-    with Pool(arguments.workers) as pool:
-        for failed, message in pool.imap_unordered(produce_scene, tasks):
-            print(message, flush=True)
-            failures += failed
-    if failures:
-        raise SystemExit(f"{failures} scenes failed and were left unwritten: rerun to retry them")
+    pending = [task for task in tasks if not is_complete(task[1], task[0].identifier)]
+    print(f"{len(tasks) - len(pending)} scenes already written, {len(pending)} to produce", flush=True)
+    failed = run_tasks(pending, arguments.workers)
+    if failed:
+        raise SystemExit("scenes failed and were left unwritten (rerun the same command to retry them):\n  " + "\n  ".join(failed))
 
 
 if __name__ == "__main__":
