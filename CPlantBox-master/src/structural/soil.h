@@ -315,8 +315,11 @@ public:
     }
 
     size_t map(double x) const override {
-        return std::floor((x-a)/(b-a)*(n-1));
-    } ///< faster than general look up
+        double i = std::floor((x-a)/(b-a)*(n-1));
+        if (!(i > 0.)) return 0;            
+        if (i > double(n-1)) return n-1;   
+        return size_t(i);
+    } ///< faster than general look up, repeats the first or last entry out of bound
 
     std::string toString() const  override{ return "LinearGrid1D"; } ///< Quick info about the object for debugging
 
@@ -412,7 +415,20 @@ public:
         delete zgrid;
     }
 
+	EquidistantGrid3D(const EquidistantGrid3D& other) : RectilinearGrid3D(other) {
+        xgrid = cloneAxis(other.xgrid);
+        ygrid = cloneAxis(other.ygrid);
+        zgrid = cloneAxis(other.zgrid);
+    } ///< deep copy: each grid owns its three axes (the destructor deletes them)
+
+    EquidistantGrid3D& operator=(const EquidistantGrid3D&) = delete; ///< already not assignable (SoilLookUp has a const member)
+
     std::shared_ptr<SoilLookUp> copy()  override { return std::make_shared<EquidistantGrid3D>(*this); }
+
+	protected:
+		static Grid1D* cloneAxis(const Grid1D* axis) {
+			return new EquidistantGrid1D(*static_cast<const EquidistantGrid1D*>(axis));
+		}
 
 };
 
